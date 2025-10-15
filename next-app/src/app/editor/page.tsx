@@ -45,10 +45,12 @@ interface UnifiedImageControlProps {
   onDragStart: (event: React.MouseEvent) => void;
   onDragMove: (event: React.MouseEvent) => void;
   onDragEnd: () => void;
+  onContextMenu: (x: number, y: number) => void;
   isDragging: boolean;
+
 }
 
-// Unified Image Control Component - Mockey.ai Style
+// Unified Image Control Component - Clean Mockey.ai Style
 function UnifiedImageControl({
   image,
   transforms,
@@ -57,41 +59,8 @@ function UnifiedImageControl({
   onDragMove,
   onDragEnd,
   isDragging,
+
 }: UnifiedImageControlProps) {
-  const handleScaleChange = (scale: number) => {
-    onTransform((prev: any) => ({
-      ...prev,
-      scale: Math.max(20, Math.min(300, scale)),
-    }));
-  };
-
-  const handleCropChange = (edge: 'left' | 'right' | 'top' | 'bottom', cropValue: number) => {
-    onTransform((prev: any) => ({
-      ...prev,
-      [edge === 'left' ? 'cropLeft' : edge === 'right' ? 'cropRight' : edge === 'top' ? 'cropTop' : 'cropBottom']: Math.max(0, Math.min(200, cropValue))
-    }));
-  };
-
-  const handleEdgeCrop = (edge: 'left' | 'right' | 'top' | 'bottom', delta: number) => {
-    onTransform((prev: any) => {
-      const currentCrop = prev[edge === 'left' ? 'cropLeft' : edge === 'right' ? 'cropRight' : edge === 'top' ? 'cropTop' : 'cropBottom'];
-      const cropChange = -delta * 0.5;
-      const newCrop = Math.max(0, Math.min(200, currentCrop + cropChange));
-
-      return {
-        ...prev,
-        [edge === 'left' ? 'cropLeft' : edge === 'right' ? 'cropRight' : edge === 'top' ? 'cropTop' : 'cropBottom']: Math.round(newCrop)
-      };
-    });
-  };
-
-  const handleRotationChange = (rotation: number) => {
-    onTransform((prev: any) => ({
-      ...prev,
-      rotation: rotation,
-    }));
-  };
-
   return (
     <div
       className="absolute z-10"
@@ -100,14 +69,9 @@ function UnifiedImageControl({
         width: 'fit-content',
         height: 'fit-content',
         transition: isDragging ? 'none' : 'transform 0.1s ease-out',
-        willChange: 'transform',
-        backfaceVisibility: 'hidden',
-        WebkitBackfaceVisibility: 'hidden',
-        transformStyle: 'preserve-3d',
-        WebkitTransformStyle: 'preserve-3d',
       }}
     >
-      {/* Main Image Container */}
+      {/* Main Image with Handles */}
       <div className="relative group">
         {/* Design Image */}
         <img
@@ -118,16 +82,28 @@ function UnifiedImageControl({
             transform: `scale(${transforms.scale / 100}) rotate(${transforms.rotation}deg)`,
             maxWidth: '300px',
             maxHeight: '300px',
-            willChange: 'transform',
-            backfaceVisibility: 'hidden',
-            WebkitBackfaceVisibility: 'hidden',
-            userSelect: 'none',
           }}
           draggable={false}
           onMouseDown={onDragStart}
+          onContextMenu={(e) => {
+            e.preventDefault();
+            // Show context menu at cursor position
+            const rect = e.currentTarget.getBoundingClientRect();
+            const imageX = e.clientX - rect.left;
+            const imageY = e.clientY - rect.top;
+
+            // Show context menu
+            if (typeof window !== 'undefined') {
+              setContextMenu({
+                visible: true,
+                x: e.clientX,
+                y: e.clientY,
+              });
+            }
+          }}
         />
 
-        {/* Invisible drag area for better UX */}
+        {/* Drag Area */}
         <div
           className="absolute inset-0 cursor-move z-20"
           onMouseDown={onDragStart}
@@ -136,10 +112,10 @@ function UnifiedImageControl({
           onMouseLeave={onDragEnd}
         />
 
-        {/* Context-Sensitive Toolbar - Top */}
-        <div className="absolute -top-12 left-1/2 transform -translate-x-1/2 z-30">
-          <div className="bg-white/95 backdrop-blur-sm rounded-lg px-3 py-2 shadow-lg border border-gray-200 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
-            <div className="flex items-center gap-2">
+        {/* Floating Toolbar - Top (appears on hover) */}
+        <div className="absolute -top-16 left-1/2 transform -translate-x-1/2 z-30">
+          <div className="bg-white/95 backdrop-blur-sm rounded-lg px-4 py-2 shadow-lg border border-gray-200 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+            <div className="flex items-center gap-3">
               <span className="text-xs text-gray-600 font-medium">Scale:</span>
               <span className="text-xs font-bold text-pink-600">{transforms.scale}%</span>
               <input
@@ -147,42 +123,39 @@ function UnifiedImageControl({
                 min="20"
                 max="300"
                 value={transforms.scale}
-                onChange={(e) => handleScaleChange(parseInt(e.target.value))}
-                className="w-16 h-1.5 bg-gray-200 rounded-lg appearance-none cursor-pointer"
-                style={{
-                  background: `linear-gradient(to right, #ec4899 0%, #ec4899 ${(transforms.scale - 20) / 2.8}%, #e5e7eb ${(transforms.scale - 20) / 2.8}%, #e5e7eb 100%)`
-                }}
+                onChange={(e) => onTransform((prev: any) => ({ ...prev, scale: parseInt(e.target.value) }))}
+                className="w-20 h-1.5 bg-gray-200 rounded-lg appearance-none cursor-pointer"
               />
             </div>
           </div>
         </div>
 
-        {/* Context-Sensitive Toolbar - Bottom */}
-        <div className="absolute -bottom-12 left-1/2 transform -translate-x-1/2 z-30">
+        {/* Floating Toolbar - Bottom (appears on hover) */}
+        <div className="absolute -bottom-16 left-1/2 transform -translate-x-1/2 z-30">
           <div className="bg-white/95 backdrop-blur-sm rounded-lg px-3 py-2 shadow-lg border border-gray-200 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
             <div className="flex items-center gap-1">
               <button
-                onClick={() => onTransform((prev: any) => ({ ...prev, x: 0, y: 0, scale: 60, rotation: 0 }))}
-                className="px-2 py-1 text-xs text-pink-600 hover:text-pink-700 font-medium bg-white/90 rounded transition-colors"
+                onClick={() => onTransform((prev: any) => ({ ...prev, x: 0, y: 0, scale: 60, rotation: 0, cropLeft: 0, cropRight: 0, cropTop: 0, cropBottom: 0 }))}
+                className="px-2 py-1 text-xs text-pink-600 hover:text-pink-700 font-medium bg-white/90 rounded"
               >
                 Reset
               </button>
               <div className="w-px h-4 bg-gray-300"></div>
               <button
                 onClick={() => onTransform((prev: any) => ({ ...prev, rotation: (prev.rotation + 90) % 360 }))}
-                className="px-2 py-1 text-xs bg-gray-100 hover:bg-gray-200 text-gray-700 rounded transition-colors"
+                className="px-2 py-1 text-xs bg-gray-100 hover:bg-gray-200 text-gray-700 rounded"
               >
                 90°
               </button>
               <button
                 onClick={() => onTransform((prev: any) => ({ ...prev, rotation: (prev.rotation - 90 + 360) % 360 }))}
-                className="px-2 py-1 text-xs bg-gray-100 hover:bg-gray-200 text-gray-700 rounded transition-colors"
+                className="px-2 py-1 text-xs bg-gray-100 hover:bg-gray-200 text-gray-700 rounded"
               >
                 -90°
               </button>
               <button
                 onClick={() => onTransform((prev: any) => ({ ...prev, rotation: (prev.rotation + 180) % 360 }))}
-                className="px-2 py-1 text-xs bg-gray-100 hover:bg-gray-200 text-gray-700 rounded transition-colors"
+                className="px-2 py-1 text-xs bg-gray-100 hover:bg-gray-200 text-gray-700 rounded"
               >
                 Flip
               </button>
@@ -190,317 +163,73 @@ function UnifiedImageControl({
           </div>
         </div>
 
-        {/* Corner Resize Handles */}
+        {/* Modern Corner Resize Handles - Blue/White Design */}
+        {[
+          { cursor: 'nw-resize', position: 'top-left' },
+          { cursor: 'ne-resize', position: 'top-right' },
+          { cursor: 'sw-resize', position: 'bottom-left' },
+          { cursor: 'se-resize', position: 'bottom-right' },
+        ].map(({ cursor, position }) => (
+          <div
+            key={position}
+            className={`absolute w-5 h-5 bg-white border-2 border-blue-500 cursor-${cursor} hover:bg-blue-50 hover:border-blue-600 hover:scale-110 transition-all z-40 shadow-sm`}
+            style={{
+              [position.includes('top') ? 'top' : 'bottom']: '-10px',
+              [position.includes('left') ? 'left' : 'right']: '-10px',
+              borderRadius: '50%',
+            }}
+            onMouseDown={(e) => {
+              e.stopPropagation();
+              const startScale = transforms.scale;
+              const startMouseX = e.clientX;
+              const startMouseY = e.clientY;
+
+              const handleResize = (moveEvent: MouseEvent) => {
+                const deltaX = position.includes('left') ? startMouseX - moveEvent.clientX : moveEvent.clientX - startMouseX;
+                const deltaY = position.includes('top') ? startMouseY - moveEvent.clientY : moveEvent.clientY - startMouseY;
+                const distance = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
+
+                const newScale = Math.max(20, Math.min(300, startScale + distance * 0.5));
+                onTransform((prev: any) => ({ ...prev, scale: Math.round(newScale) }));
+              };
+
+              const handleEnd = () => {
+                document.removeEventListener('mousemove', handleResize);
+                document.removeEventListener('mouseup', handleEnd);
+              };
+
+              document.addEventListener('mousemove', handleResize);
+              document.addEventListener('mouseup', handleEnd);
+            }}
+          />
+        ))}
+
+        {/* Modern Rotation Handle - Blue/White Design */}
         <div
-          className="absolute w-3 h-3 bg-pink-500 border-2 border-white transform rotate-45 cursor-nw-resize hover:scale-125 transition-transform z-40"
-          style={{
-            top: `${-transforms.cropTop - 6}px`,
-            left: `${-transforms.cropLeft - 6}px`,
-            transform: `rotate(45deg) scale(${transforms.scale / 100})`,
-            transformOrigin: 'center center',
-          }}
-          onMouseDown={(e) => {
-            e.stopPropagation();
-            const startScale = transforms.scale;
-            const startMouseX = e.clientX;
-            const startMouseY = e.clientY;
-
-            const handleCornerResize = (moveEvent: MouseEvent) => {
-              const deltaX = startMouseX - moveEvent.clientX;
-              const deltaY = startMouseY - moveEvent.clientY;
-              const distance = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
-              const angle = Math.atan2(deltaY, deltaX);
-
-              let scaleChange = 0;
-              if (angle >= -Math.PI / 4 && angle <= Math.PI / 4) {
-                scaleChange = distance * 0.3;
-              } else {
-                scaleChange = -distance * 0.3;
-              }
-
-              const newScale = Math.max(20, Math.min(300, startScale + scaleChange));
-              handleScaleChange(Math.round(newScale));
-            };
-
-            const handleEnd = () => {
-              document.removeEventListener('mousemove', handleCornerResize);
-              document.removeEventListener('mouseup', handleEnd);
-            };
-
-            document.addEventListener('mousemove', handleCornerResize);
-            document.addEventListener('mouseup', handleEnd);
-          }}
-        />
-        <div
-          className="absolute w-3 h-3 bg-pink-500 border-2 border-white transform rotate-45 cursor-ne-resize hover:scale-125 transition-transform z-40"
-          style={{
-            top: `${-transforms.cropTop - 6}px`,
-            right: `${-transforms.cropRight - 6}px`,
-            transform: `rotate(45deg) scale(${transforms.scale / 100})`,
-            transformOrigin: 'center center',
-          }}
-          onMouseDown={(e) => {
-            e.stopPropagation();
-            const startScale = transforms.scale;
-            const startMouseX = e.clientX;
-            const startMouseY = e.clientY;
-
-            const handleCornerResize = (moveEvent: MouseEvent) => {
-              const deltaX = moveEvent.clientX - startMouseX;
-              const deltaY = startMouseY - moveEvent.clientY;
-              const distance = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
-              const angle = Math.atan2(deltaY, deltaX);
-
-              let scaleChange = 0;
-              if (angle >= -Math.PI / 4 && angle <= Math.PI / 4) {
-                scaleChange = distance * 0.3;
-              } else {
-                scaleChange = -distance * 0.3;
-              }
-
-              const newScale = Math.max(20, Math.min(300, startScale + scaleChange));
-              handleScaleChange(Math.round(newScale));
-            };
-
-            const handleEnd = () => {
-              document.removeEventListener('mousemove', handleCornerResize);
-              document.removeEventListener('mouseup', handleEnd);
-            };
-
-            document.addEventListener('mousemove', handleCornerResize);
-            document.addEventListener('mouseup', handleEnd);
-          }}
-        />
-        <div
-          className="absolute w-3 h-3 bg-pink-500 border-2 border-white transform rotate-45 cursor-sw-resize hover:scale-125 transition-transform z-40"
-          style={{
-            bottom: `${-transforms.cropBottom - 6}px`,
-            left: `${-transforms.cropLeft - 6}px`,
-            transform: `rotate(45deg) scale(${transforms.scale / 100})`,
-            transformOrigin: 'center center',
-          }}
-          onMouseDown={(e) => {
-            e.stopPropagation();
-            const startScale = transforms.scale;
-            const startMouseX = e.clientX;
-            const startMouseY = e.clientY;
-
-            const handleCornerResize = (moveEvent: MouseEvent) => {
-              const deltaX = startMouseX - moveEvent.clientX;
-              const deltaY = moveEvent.clientY - startMouseY;
-              const distance = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
-              const angle = Math.atan2(deltaY, deltaX);
-
-              let scaleChange = 0;
-              if (angle >= -Math.PI / 4 && angle <= Math.PI / 4) {
-                scaleChange = distance * 0.3;
-              } else {
-                scaleChange = -distance * 0.3;
-              }
-
-              const newScale = Math.max(20, Math.min(300, startScale + scaleChange));
-              handleScaleChange(Math.round(newScale));
-            };
-
-            const handleEnd = () => {
-              document.removeEventListener('mousemove', handleCornerResize);
-              document.removeEventListener('mouseup', handleEnd);
-            };
-
-            document.addEventListener('mousemove', handleCornerResize);
-            document.addEventListener('mouseup', handleEnd);
-          }}
-        />
-        <div
-          className="absolute w-3 h-3 bg-pink-500 border-2 border-white transform rotate-45 cursor-se-resize hover:scale-125 transition-transform z-40"
-          style={{
-            bottom: `${-transforms.cropBottom - 6}px`,
-            right: `${-transforms.cropRight - 6}px`,
-            transform: `rotate(45deg) scale(${transforms.scale / 100})`,
-            transformOrigin: 'center center',
-          }}
-          onMouseDown={(e) => {
-            e.stopPropagation();
-            const startScale = transforms.scale;
-            const startMouseX = e.clientX;
-            const startMouseY = e.clientY;
-
-            const handleCornerResize = (moveEvent: MouseEvent) => {
-              const deltaX = moveEvent.clientX - startMouseX;
-              const deltaY = moveEvent.clientY - startMouseY;
-              const distance = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
-              const angle = Math.atan2(deltaY, deltaX);
-
-              let scaleChange = 0;
-              if (angle >= -Math.PI / 4 && angle <= Math.PI / 4) {
-                scaleChange = distance * 0.3;
-              } else {
-                scaleChange = -distance * 0.3;
-              }
-
-              const newScale = Math.max(20, Math.min(300, startScale + scaleChange));
-              handleScaleChange(Math.round(newScale));
-            };
-
-            const handleEnd = () => {
-              document.removeEventListener('mousemove', handleCornerResize);
-              document.removeEventListener('mouseup', handleEnd);
-            };
-
-            document.addEventListener('mousemove', handleCornerResize);
-            document.addEventListener('mouseup', handleEnd);
-          }}
-        />
-
-        {/* Edge Crop Handles */}
-        <div
-          className="absolute w-5 h-1 bg-pink-500 border border-pink-700 cursor-n-resize hover:bg-pink-600 transition-colors z-40"
-          style={{
-            top: `${-transforms.cropTop - 2}px`,
-            left: '50%',
-            transform: `translateX(-50%) scale(${transforms.scale / 100})`,
-            transformOrigin: 'center center',
-          }}
-          onMouseDown={(e) => {
-            e.stopPropagation();
-            const startMouseY = e.clientY;
-
-            const handleTopCrop = (moveEvent: MouseEvent) => {
-              const deltaY = startMouseY - moveEvent.clientY;
-              handleEdgeCrop('top', deltaY);
-            };
-
-            const handleEnd = () => {
-              document.removeEventListener('mousemove', handleTopCrop);
-              document.removeEventListener('mouseup', handleEnd);
-            };
-
-            document.addEventListener('mousemove', handleTopCrop);
-            document.addEventListener('mouseup', handleEnd);
-          }}
-        />
-        <div
-          className="absolute w-5 h-1 bg-pink-500 border border-pink-700 cursor-s-resize hover:bg-pink-600 transition-colors z-40"
-          style={{
-            bottom: `${-transforms.cropBottom - 2}px`,
-            left: '50%',
-            transform: `translateX(-50%) scale(${transforms.scale / 100})`,
-            transformOrigin: 'center center',
-          }}
-          onMouseDown={(e) => {
-            e.stopPropagation();
-            const startCrop = transforms.cropBottom;
-            const startMouseY = e.clientY;
-
-            const handleBottomCrop = (moveEvent: MouseEvent) => {
-              const deltaY = moveEvent.clientY - startMouseY;
-              const cropChange = -deltaY * 0.5;
-              const newCrop = Math.max(0, Math.min(200, startCrop + cropChange));
-              handleCropChange('bottom', Math.round(newCrop));
-            };
-
-            const handleEnd = () => {
-              document.removeEventListener('mousemove', handleBottomCrop);
-              document.removeEventListener('mouseup', handleEnd);
-            };
-
-            document.addEventListener('mousemove', handleBottomCrop);
-            document.addEventListener('mouseup', handleEnd);
-          }}
-        />
-        <div
-          className="absolute w-1 h-5 bg-pink-500 border border-pink-700 cursor-w-resize hover:bg-pink-600 transition-colors z-40"
-          style={{
-            top: '50%',
-            left: `${-transforms.cropLeft - 2}px`,
-            transform: `translateY(-50%) scale(${transforms.scale / 100})`,
-            transformOrigin: 'center center',
-          }}
-          onMouseDown={(e) => {
-            e.stopPropagation();
-            const startCrop = transforms.cropLeft;
-            const startMouseX = e.clientX;
-
-            const handleLeftCrop = (moveEvent: MouseEvent) => {
-              const deltaX = startMouseX - moveEvent.clientX;
-              const cropChange = -deltaX * 0.5;
-              const newCrop = Math.max(0, Math.min(200, startCrop + cropChange));
-              handleCropChange('left', Math.round(newCrop));
-            };
-
-            const handleEnd = () => {
-              document.removeEventListener('mousemove', handleLeftCrop);
-              document.removeEventListener('mouseup', handleEnd);
-            };
-
-            document.addEventListener('mousemove', handleLeftCrop);
-            document.addEventListener('mouseup', handleEnd);
-          }}
-        />
-        <div
-          className="absolute w-1 h-5 bg-pink-500 border border-pink-700 cursor-e-resize hover:bg-pink-600 transition-colors z-40"
-          style={{
-            top: '50%',
-            right: `${-transforms.cropRight - 2}px`,
-            transform: `translateY(-50%) scale(${transforms.scale / 100})`,
-            transformOrigin: 'center center',
-          }}
-          onMouseDown={(e) => {
-            e.stopPropagation();
-            const startCrop = transforms.cropRight;
-            const startMouseX = e.clientX;
-
-            const handleRightCrop = (moveEvent: MouseEvent) => {
-              const deltaX = moveEvent.clientX - startMouseX;
-              const cropChange = -deltaX * 0.5;
-              const newCrop = Math.max(0, Math.min(200, startCrop + cropChange));
-              handleCropChange('right', Math.round(newCrop));
-            };
-
-            const handleEnd = () => {
-              document.removeEventListener('mousemove', handleRightCrop);
-              document.removeEventListener('mouseup', handleEnd);
-            };
-
-            document.addEventListener('mousemove', handleRightCrop);
-            document.addEventListener('mouseup', handleEnd);
-          }}
-        />
-
-        {/* Rotation Control */}
-        <div
-          className="absolute z-40"
-          style={{
-            top: `${-transforms.cropTop - 32}px`,
-            left: '50%',
-            transform: `translateX(-50%) scale(${transforms.scale / 100})`,
-            transformOrigin: 'center center',
-          }}
+          className="absolute -top-16 -right-16 w-7 h-7 bg-white rounded-full border-2 border-blue-500 flex items-center justify-center cursor-pointer hover:bg-blue-50 hover:border-blue-600 hover:scale-110 transition-all z-40 shadow-sm"
           onMouseDown={(e) => {
             e.stopPropagation();
             const startRotation = transforms.rotation;
             const startMouseX = e.clientX;
 
-            const handleRotationMove = (moveEvent: MouseEvent) => {
+            const handleRotate = (moveEvent: MouseEvent) => {
               const deltaX = moveEvent.clientX - startMouseX;
               const newRotation = startRotation + (deltaX * 0.5);
-              handleRotationChange(Math.max(-180, Math.min(180, newRotation)));
+              onTransform((prev: any) => ({ ...prev, rotation: Math.max(-180, Math.min(180, newRotation)) }));
             };
 
-            const handleRotationEnd = () => {
-              document.removeEventListener('mousemove', handleRotationMove);
-              document.removeEventListener('mouseup', handleRotationEnd);
+            const handleEnd = () => {
+              document.removeEventListener('mousemove', handleRotate);
+              document.removeEventListener('mouseup', handleEnd);
             };
 
-            document.addEventListener('mousemove', handleRotationMove);
-            document.addEventListener('mouseup', handleRotationEnd);
+            document.addEventListener('mousemove', handleRotate);
+            document.addEventListener('mouseup', handleEnd);
           }}
         >
-          <div className="w-5 h-5 bg-pink-500 rounded-full border-2 border-white flex items-center justify-center cursor-pointer hover:bg-pink-600 hover:scale-110 transition-all">
-            <svg className="w-2.5 h-2.5 text-white" fill="currentColor" viewBox="0 0 24 24">
-              <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
-            </svg>
-          </div>
+          <svg className="w-4 h-4 text-blue-600" fill="currentColor" viewBox="0 0 24 24">
+            <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
+          </svg>
         </div>
       </div>
     </div>
@@ -529,6 +258,11 @@ export default function EditorPage() {
 
   // Context menu state
   const [contextMenu, setContextMenu] = useState<{ visible: boolean; x: number; y: number } | null>(null);
+
+  // Context menu handler
+  const handleContextMenu = (x: number, y: number) => {
+    setContextMenu({ visible: true, x, y });
+  };
 
   const handleUpload = () => {
     fileInputRef.current?.click();
@@ -776,8 +510,13 @@ export default function EditorPage() {
     );
   };
 
+  // Close context menu when clicking outside
+  const handleClickOutside = useCallback(() => {
+    setContextMenu(null);
+  }, []);
+
   return (
-    <div className="h-screen bg-gradient-to-br from-gray-50 to-gray-100 flex">
+    <div className="h-screen bg-gradient-to-br from-gray-50 to-gray-100 flex" onClick={handleClickOutside}>
       {/* Left Sidebar - Upload & Settings */}
       <div className="w-80 bg-white border-r border-gray-200 flex flex-col shadow-lg">
         <div className="p-6 border-b border-gray-200 bg-gradient-to-r from-pink-500 to-purple-600">
@@ -1041,8 +780,114 @@ export default function EditorPage() {
                   onDragStart={handleImageMouseDown}
                   onDragMove={handleImageMouseMove}
                   onDragEnd={handleImageMouseUp}
+                  onContextMenu={handleContextMenu}
                   isDragging={dragging?.isDragging || false}
                 />
+              )}
+
+              {/* Floating Context Menu */}
+              {contextMenu?.visible && (
+                <div
+                  className="fixed z-50 bg-white border border-gray-200 rounded-lg shadow-xl py-2 min-w-48"
+                  style={{
+                    left: contextMenu.x,
+                    top: contextMenu.y,
+                  }}
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <div className="px-3 py-2 text-xs font-semibold text-gray-700 border-b border-gray-100">
+                    Image Actions
+                  </div>
+
+                  <button
+                    onClick={() => {
+                      setImageTransforms({
+                        x: 0,
+                        y: 0,
+                        scale: 60,
+                        rotation: 0,
+                        cropLeft: 0,
+                        cropRight: 0,
+                        cropTop: 0,
+                        cropBottom: 0,
+                      });
+                      setContextMenu(null);
+                    }}
+                    className="w-full px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2"
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                    </svg>
+                    Reset Transform
+                  </button>
+
+                  <button
+                    onClick={() => {
+                      setImageTransforms((prev: any) => ({ ...prev, rotation: (prev.rotation + 90) % 360 }));
+                      setContextMenu(null);
+                    }}
+                    className="w-full px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2"
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16V4m0 0L3 8m4-4l4 4m1 0v12m0 0l4-4m-4 4l-4-4" />
+                    </svg>
+                    Rotate 90°
+                  </button>
+
+                  <button
+                    onClick={() => {
+                      setImageTransforms((prev: any) => ({ ...prev, rotation: (prev.rotation + 180) % 360 }));
+                      setContextMenu(null);
+                    }}
+                    className="w-full px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2"
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7h12m0 0l-4-4m4 4l-4 4M16 17H4m0 0l4 4m-4-4l4-4" />
+                    </svg>
+                    Flip Horizontal
+                  </button>
+
+                  <button
+                    onClick={() => {
+                      setImageTransforms((prev: any) => ({ ...prev, scale: Math.max(20, prev.scale - 10) }));
+                      setContextMenu(null);
+                    }}
+                    className="w-full px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2"
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 12H4M12 20l-8-8 8-8" />
+                    </svg>
+                    Scale Down
+                  </button>
+
+                  <button
+                    onClick={() => {
+                      setImageTransforms((prev: any) => ({ ...prev, scale: Math.min(300, prev.scale + 10) }));
+                      setContextMenu(null);
+                    }}
+                    className="w-full px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2"
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 12h16M12 4l8 8-8 8" />
+                    </svg>
+                    Scale Up
+                  </button>
+
+                  <div className="border-t border-gray-100 my-1"></div>
+
+                  <button
+                    onClick={() => {
+                      setImage(null);
+                      setContextMenu(null);
+                    }}
+                    className="w-full px-3 py-2 text-left text-sm text-red-600 hover:bg-red-50 flex items-center gap-2"
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                    </svg>
+                    Delete Image
+                  </button>
+                </div>
               )}
             </div>
           </div>
