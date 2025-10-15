@@ -28,26 +28,507 @@ interface CropTransform {
 
 type ContainerType = 'front' | 'back' | 'leftSleeve' | 'rightSleeve';
 
+// Unified Image Control Component Props
+interface UnifiedImageControlProps {
+  image: string;
+  transforms: {
+    x: number;
+    y: number;
+    scale: number;
+    rotation: number;
+    cropLeft: number;
+    cropRight: number;
+    cropTop: number;
+    cropBottom: number;
+  };
+  onTransform: React.Dispatch<React.SetStateAction<any>>;
+  onDragStart: (event: React.MouseEvent) => void;
+  onDragMove: (event: React.MouseEvent) => void;
+  onDragEnd: () => void;
+  isDragging: boolean;
+}
+
+// Unified Image Control Component - Mockey.ai Style
+function UnifiedImageControl({
+  image,
+  transforms,
+  onTransform,
+  onDragStart,
+  onDragMove,
+  onDragEnd,
+  isDragging,
+}: UnifiedImageControlProps) {
+  const handleScaleChange = (scale: number) => {
+    onTransform((prev: any) => ({
+      ...prev,
+      scale: Math.max(20, Math.min(300, scale)),
+    }));
+  };
+
+  const handleCropChange = (edge: 'left' | 'right' | 'top' | 'bottom', cropValue: number) => {
+    onTransform((prev: any) => ({
+      ...prev,
+      [edge === 'left' ? 'cropLeft' : edge === 'right' ? 'cropRight' : edge === 'top' ? 'cropTop' : 'cropBottom']: Math.max(0, Math.min(200, cropValue))
+    }));
+  };
+
+  const handleEdgeCrop = (edge: 'left' | 'right' | 'top' | 'bottom', delta: number) => {
+    onTransform((prev: any) => {
+      const currentCrop = prev[edge === 'left' ? 'cropLeft' : edge === 'right' ? 'cropRight' : edge === 'top' ? 'cropTop' : 'cropBottom'];
+      const cropChange = -delta * 0.5;
+      const newCrop = Math.max(0, Math.min(200, currentCrop + cropChange));
+
+      return {
+        ...prev,
+        [edge === 'left' ? 'cropLeft' : edge === 'right' ? 'cropRight' : edge === 'top' ? 'cropTop' : 'cropBottom']: Math.round(newCrop)
+      };
+    });
+  };
+
+  const handleRotationChange = (rotation: number) => {
+    onTransform((prev: any) => ({
+      ...prev,
+      rotation: rotation,
+    }));
+  };
+
+  return (
+    <div
+      className="absolute z-10"
+      style={{
+        transform: `translate3d(${transforms.x}px, ${transforms.y}px, 0)`,
+        width: 'fit-content',
+        height: 'fit-content',
+        transition: isDragging ? 'none' : 'transform 0.1s ease-out',
+        willChange: 'transform',
+        backfaceVisibility: 'hidden',
+        WebkitBackfaceVisibility: 'hidden',
+        transformStyle: 'preserve-3d',
+        WebkitTransformStyle: 'preserve-3d',
+      }}
+    >
+      {/* Main Image Container */}
+      <div className="relative group">
+        {/* Design Image */}
+        <img
+          src={image}
+          alt="Design"
+          className="select-none block cursor-move relative z-10"
+          style={{
+            transform: `scale(${transforms.scale / 100}) rotate(${transforms.rotation}deg)`,
+            maxWidth: '300px',
+            maxHeight: '300px',
+            willChange: 'transform',
+            backfaceVisibility: 'hidden',
+            WebkitBackfaceVisibility: 'hidden',
+            userSelect: 'none',
+          }}
+          draggable={false}
+          onMouseDown={onDragStart}
+        />
+
+        {/* Invisible drag area for better UX */}
+        <div
+          className="absolute inset-0 cursor-move z-20"
+          onMouseDown={onDragStart}
+          onMouseMove={onDragMove}
+          onMouseUp={onDragEnd}
+          onMouseLeave={onDragEnd}
+        />
+
+        {/* Context-Sensitive Toolbar - Top */}
+        <div className="absolute -top-12 left-1/2 transform -translate-x-1/2 z-30">
+          <div className="bg-white/95 backdrop-blur-sm rounded-lg px-3 py-2 shadow-lg border border-gray-200 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-gray-600 font-medium">Scale:</span>
+              <span className="text-xs font-bold text-pink-600">{transforms.scale}%</span>
+              <input
+                type="range"
+                min="20"
+                max="300"
+                value={transforms.scale}
+                onChange={(e) => handleScaleChange(parseInt(e.target.value))}
+                className="w-16 h-1.5 bg-gray-200 rounded-lg appearance-none cursor-pointer"
+                style={{
+                  background: `linear-gradient(to right, #ec4899 0%, #ec4899 ${(transforms.scale - 20) / 2.8}%, #e5e7eb ${(transforms.scale - 20) / 2.8}%, #e5e7eb 100%)`
+                }}
+              />
+            </div>
+          </div>
+        </div>
+
+        {/* Context-Sensitive Toolbar - Bottom */}
+        <div className="absolute -bottom-12 left-1/2 transform -translate-x-1/2 z-30">
+          <div className="bg-white/95 backdrop-blur-sm rounded-lg px-3 py-2 shadow-lg border border-gray-200 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+            <div className="flex items-center gap-1">
+              <button
+                onClick={() => onTransform((prev: any) => ({ ...prev, x: 0, y: 0, scale: 60, rotation: 0 }))}
+                className="px-2 py-1 text-xs text-pink-600 hover:text-pink-700 font-medium bg-white/90 rounded transition-colors"
+              >
+                Reset
+              </button>
+              <div className="w-px h-4 bg-gray-300"></div>
+              <button
+                onClick={() => onTransform((prev: any) => ({ ...prev, rotation: (prev.rotation + 90) % 360 }))}
+                className="px-2 py-1 text-xs bg-gray-100 hover:bg-gray-200 text-gray-700 rounded transition-colors"
+              >
+                90°
+              </button>
+              <button
+                onClick={() => onTransform((prev: any) => ({ ...prev, rotation: (prev.rotation - 90 + 360) % 360 }))}
+                className="px-2 py-1 text-xs bg-gray-100 hover:bg-gray-200 text-gray-700 rounded transition-colors"
+              >
+                -90°
+              </button>
+              <button
+                onClick={() => onTransform((prev: any) => ({ ...prev, rotation: (prev.rotation + 180) % 360 }))}
+                className="px-2 py-1 text-xs bg-gray-100 hover:bg-gray-200 text-gray-700 rounded transition-colors"
+              >
+                Flip
+              </button>
+            </div>
+          </div>
+        </div>
+
+        {/* Corner Resize Handles */}
+        <div
+          className="absolute w-3 h-3 bg-pink-500 border-2 border-white transform rotate-45 cursor-nw-resize hover:scale-125 transition-transform z-40"
+          style={{
+            top: `${-transforms.cropTop - 6}px`,
+            left: `${-transforms.cropLeft - 6}px`,
+            transform: `rotate(45deg) scale(${transforms.scale / 100})`,
+            transformOrigin: 'center center',
+          }}
+          onMouseDown={(e) => {
+            e.stopPropagation();
+            const startScale = transforms.scale;
+            const startMouseX = e.clientX;
+            const startMouseY = e.clientY;
+
+            const handleCornerResize = (moveEvent: MouseEvent) => {
+              const deltaX = startMouseX - moveEvent.clientX;
+              const deltaY = startMouseY - moveEvent.clientY;
+              const distance = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
+              const angle = Math.atan2(deltaY, deltaX);
+
+              let scaleChange = 0;
+              if (angle >= -Math.PI / 4 && angle <= Math.PI / 4) {
+                scaleChange = distance * 0.3;
+              } else {
+                scaleChange = -distance * 0.3;
+              }
+
+              const newScale = Math.max(20, Math.min(300, startScale + scaleChange));
+              handleScaleChange(Math.round(newScale));
+            };
+
+            const handleEnd = () => {
+              document.removeEventListener('mousemove', handleCornerResize);
+              document.removeEventListener('mouseup', handleEnd);
+            };
+
+            document.addEventListener('mousemove', handleCornerResize);
+            document.addEventListener('mouseup', handleEnd);
+          }}
+        />
+        <div
+          className="absolute w-3 h-3 bg-pink-500 border-2 border-white transform rotate-45 cursor-ne-resize hover:scale-125 transition-transform z-40"
+          style={{
+            top: `${-transforms.cropTop - 6}px`,
+            right: `${-transforms.cropRight - 6}px`,
+            transform: `rotate(45deg) scale(${transforms.scale / 100})`,
+            transformOrigin: 'center center',
+          }}
+          onMouseDown={(e) => {
+            e.stopPropagation();
+            const startScale = transforms.scale;
+            const startMouseX = e.clientX;
+            const startMouseY = e.clientY;
+
+            const handleCornerResize = (moveEvent: MouseEvent) => {
+              const deltaX = moveEvent.clientX - startMouseX;
+              const deltaY = startMouseY - moveEvent.clientY;
+              const distance = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
+              const angle = Math.atan2(deltaY, deltaX);
+
+              let scaleChange = 0;
+              if (angle >= -Math.PI / 4 && angle <= Math.PI / 4) {
+                scaleChange = distance * 0.3;
+              } else {
+                scaleChange = -distance * 0.3;
+              }
+
+              const newScale = Math.max(20, Math.min(300, startScale + scaleChange));
+              handleScaleChange(Math.round(newScale));
+            };
+
+            const handleEnd = () => {
+              document.removeEventListener('mousemove', handleCornerResize);
+              document.removeEventListener('mouseup', handleEnd);
+            };
+
+            document.addEventListener('mousemove', handleCornerResize);
+            document.addEventListener('mouseup', handleEnd);
+          }}
+        />
+        <div
+          className="absolute w-3 h-3 bg-pink-500 border-2 border-white transform rotate-45 cursor-sw-resize hover:scale-125 transition-transform z-40"
+          style={{
+            bottom: `${-transforms.cropBottom - 6}px`,
+            left: `${-transforms.cropLeft - 6}px`,
+            transform: `rotate(45deg) scale(${transforms.scale / 100})`,
+            transformOrigin: 'center center',
+          }}
+          onMouseDown={(e) => {
+            e.stopPropagation();
+            const startScale = transforms.scale;
+            const startMouseX = e.clientX;
+            const startMouseY = e.clientY;
+
+            const handleCornerResize = (moveEvent: MouseEvent) => {
+              const deltaX = startMouseX - moveEvent.clientX;
+              const deltaY = moveEvent.clientY - startMouseY;
+              const distance = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
+              const angle = Math.atan2(deltaY, deltaX);
+
+              let scaleChange = 0;
+              if (angle >= -Math.PI / 4 && angle <= Math.PI / 4) {
+                scaleChange = distance * 0.3;
+              } else {
+                scaleChange = -distance * 0.3;
+              }
+
+              const newScale = Math.max(20, Math.min(300, startScale + scaleChange));
+              handleScaleChange(Math.round(newScale));
+            };
+
+            const handleEnd = () => {
+              document.removeEventListener('mousemove', handleCornerResize);
+              document.removeEventListener('mouseup', handleEnd);
+            };
+
+            document.addEventListener('mousemove', handleCornerResize);
+            document.addEventListener('mouseup', handleEnd);
+          }}
+        />
+        <div
+          className="absolute w-3 h-3 bg-pink-500 border-2 border-white transform rotate-45 cursor-se-resize hover:scale-125 transition-transform z-40"
+          style={{
+            bottom: `${-transforms.cropBottom - 6}px`,
+            right: `${-transforms.cropRight - 6}px`,
+            transform: `rotate(45deg) scale(${transforms.scale / 100})`,
+            transformOrigin: 'center center',
+          }}
+          onMouseDown={(e) => {
+            e.stopPropagation();
+            const startScale = transforms.scale;
+            const startMouseX = e.clientX;
+            const startMouseY = e.clientY;
+
+            const handleCornerResize = (moveEvent: MouseEvent) => {
+              const deltaX = moveEvent.clientX - startMouseX;
+              const deltaY = moveEvent.clientY - startMouseY;
+              const distance = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
+              const angle = Math.atan2(deltaY, deltaX);
+
+              let scaleChange = 0;
+              if (angle >= -Math.PI / 4 && angle <= Math.PI / 4) {
+                scaleChange = distance * 0.3;
+              } else {
+                scaleChange = -distance * 0.3;
+              }
+
+              const newScale = Math.max(20, Math.min(300, startScale + scaleChange));
+              handleScaleChange(Math.round(newScale));
+            };
+
+            const handleEnd = () => {
+              document.removeEventListener('mousemove', handleCornerResize);
+              document.removeEventListener('mouseup', handleEnd);
+            };
+
+            document.addEventListener('mousemove', handleCornerResize);
+            document.addEventListener('mouseup', handleEnd);
+          }}
+        />
+
+        {/* Edge Crop Handles */}
+        <div
+          className="absolute w-5 h-1 bg-pink-500 border border-pink-700 cursor-n-resize hover:bg-pink-600 transition-colors z-40"
+          style={{
+            top: `${-transforms.cropTop - 2}px`,
+            left: '50%',
+            transform: `translateX(-50%) scale(${transforms.scale / 100})`,
+            transformOrigin: 'center center',
+          }}
+          onMouseDown={(e) => {
+            e.stopPropagation();
+            const startMouseY = e.clientY;
+
+            const handleTopCrop = (moveEvent: MouseEvent) => {
+              const deltaY = startMouseY - moveEvent.clientY;
+              handleEdgeCrop('top', deltaY);
+            };
+
+            const handleEnd = () => {
+              document.removeEventListener('mousemove', handleTopCrop);
+              document.removeEventListener('mouseup', handleEnd);
+            };
+
+            document.addEventListener('mousemove', handleTopCrop);
+            document.addEventListener('mouseup', handleEnd);
+          }}
+        />
+        <div
+          className="absolute w-5 h-1 bg-pink-500 border border-pink-700 cursor-s-resize hover:bg-pink-600 transition-colors z-40"
+          style={{
+            bottom: `${-transforms.cropBottom - 2}px`,
+            left: '50%',
+            transform: `translateX(-50%) scale(${transforms.scale / 100})`,
+            transformOrigin: 'center center',
+          }}
+          onMouseDown={(e) => {
+            e.stopPropagation();
+            const startCrop = transforms.cropBottom;
+            const startMouseY = e.clientY;
+
+            const handleBottomCrop = (moveEvent: MouseEvent) => {
+              const deltaY = moveEvent.clientY - startMouseY;
+              const cropChange = -deltaY * 0.5;
+              const newCrop = Math.max(0, Math.min(200, startCrop + cropChange));
+              handleCropChange('bottom', Math.round(newCrop));
+            };
+
+            const handleEnd = () => {
+              document.removeEventListener('mousemove', handleBottomCrop);
+              document.removeEventListener('mouseup', handleEnd);
+            };
+
+            document.addEventListener('mousemove', handleBottomCrop);
+            document.addEventListener('mouseup', handleEnd);
+          }}
+        />
+        <div
+          className="absolute w-1 h-5 bg-pink-500 border border-pink-700 cursor-w-resize hover:bg-pink-600 transition-colors z-40"
+          style={{
+            top: '50%',
+            left: `${-transforms.cropLeft - 2}px`,
+            transform: `translateY(-50%) scale(${transforms.scale / 100})`,
+            transformOrigin: 'center center',
+          }}
+          onMouseDown={(e) => {
+            e.stopPropagation();
+            const startCrop = transforms.cropLeft;
+            const startMouseX = e.clientX;
+
+            const handleLeftCrop = (moveEvent: MouseEvent) => {
+              const deltaX = startMouseX - moveEvent.clientX;
+              const cropChange = -deltaX * 0.5;
+              const newCrop = Math.max(0, Math.min(200, startCrop + cropChange));
+              handleCropChange('left', Math.round(newCrop));
+            };
+
+            const handleEnd = () => {
+              document.removeEventListener('mousemove', handleLeftCrop);
+              document.removeEventListener('mouseup', handleEnd);
+            };
+
+            document.addEventListener('mousemove', handleLeftCrop);
+            document.addEventListener('mouseup', handleEnd);
+          }}
+        />
+        <div
+          className="absolute w-1 h-5 bg-pink-500 border border-pink-700 cursor-e-resize hover:bg-pink-600 transition-colors z-40"
+          style={{
+            top: '50%',
+            right: `${-transforms.cropRight - 2}px`,
+            transform: `translateY(-50%) scale(${transforms.scale / 100})`,
+            transformOrigin: 'center center',
+          }}
+          onMouseDown={(e) => {
+            e.stopPropagation();
+            const startCrop = transforms.cropRight;
+            const startMouseX = e.clientX;
+
+            const handleRightCrop = (moveEvent: MouseEvent) => {
+              const deltaX = moveEvent.clientX - startMouseX;
+              const cropChange = -deltaX * 0.5;
+              const newCrop = Math.max(0, Math.min(200, startCrop + cropChange));
+              handleCropChange('right', Math.round(newCrop));
+            };
+
+            const handleEnd = () => {
+              document.removeEventListener('mousemove', handleRightCrop);
+              document.removeEventListener('mouseup', handleEnd);
+            };
+
+            document.addEventListener('mousemove', handleRightCrop);
+            document.addEventListener('mouseup', handleEnd);
+          }}
+        />
+
+        {/* Rotation Control */}
+        <div
+          className="absolute z-40"
+          style={{
+            top: `${-transforms.cropTop - 32}px`,
+            left: '50%',
+            transform: `translateX(-50%) scale(${transforms.scale / 100})`,
+            transformOrigin: 'center center',
+          }}
+          onMouseDown={(e) => {
+            e.stopPropagation();
+            const startRotation = transforms.rotation;
+            const startMouseX = e.clientX;
+
+            const handleRotationMove = (moveEvent: MouseEvent) => {
+              const deltaX = moveEvent.clientX - startMouseX;
+              const newRotation = startRotation + (deltaX * 0.5);
+              handleRotationChange(Math.max(-180, Math.min(180, newRotation)));
+            };
+
+            const handleRotationEnd = () => {
+              document.removeEventListener('mousemove', handleRotationMove);
+              document.removeEventListener('mouseup', handleRotationEnd);
+            };
+
+            document.addEventListener('mousemove', handleRotationMove);
+            document.addEventListener('mouseup', handleRotationEnd);
+          }}
+        >
+          <div className="w-5 h-5 bg-pink-500 rounded-full border-2 border-white flex items-center justify-center cursor-pointer hover:bg-pink-600 hover:scale-110 transition-all">
+            <svg className="w-2.5 h-2.5 text-white" fill="currentColor" viewBox="0 0 24 24">
+              <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
+            </svg>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function EditorPage() {
   const [image, setImage] = useState<string | null>(null);
   const [tshirtColor, setTshirtColor] = useState('#ffffff');
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Separate crop transforms for each container (mockey.ai style cropping)
-  const [cropTransforms, setCropTransforms] = useState<Record<ContainerType, CropTransform>>({
-    front: { x: 0, y: 0, scale: 60, rotation: 0, cropLeft: 0, cropRight: 0, cropTop: 0, cropBottom: 0 }, // Reduced to 60% for better fit
-    back: { x: 0, y: 0, scale: 60, rotation: 0, cropLeft: 0, cropRight: 0, cropTop: 0, cropBottom: 0 },
-    leftSleeve: { x: 0, y: 0, scale: 50, rotation: 0, cropLeft: 0, cropRight: 0, cropTop: 0, cropBottom: 0 },
-    rightSleeve: { x: 0, y: 0, scale: 50, rotation: 0, cropLeft: 0, cropRight: 0, cropTop: 0, cropBottom: 0 },
+  // Unified image control system (mockey.ai style)
+  const [imageTransforms, setImageTransforms] = useState({
+    x: 0,
+    y: 0,
+    scale: 60,
+    rotation: 0,
+    cropLeft: 0,
+    cropRight: 0,
+    cropTop: 0,
+    cropBottom: 0,
   });
 
-  // Independent draggable image position (separate from container transforms)
-  const [imagePosition, setImagePosition] = useState({ x: 0, y: 0 }); // Start at center
-  const [imageScale, setImageScale] = useState(60);
-  const [imageRotation, setImageRotation] = useState(0);
+  // Dragging state for unified image control
+  const [dragging, setDragging] = useState<{ isDragging: boolean; startX: number; startY: number; type: 'move' | 'resize' | 'rotate' | 'crop' } | null>(null);
 
-  // Dragging state for the independent image
-  const [dragging, setDragging] = useState<{ isDragging: boolean; startX: number; startY: number } | null>(null);
+  // Context menu state
+  const [contextMenu, setContextMenu] = useState<{ visible: boolean; x: number; y: number } | null>(null);
 
   const handleUpload = () => {
     fileInputRef.current?.click();
@@ -61,7 +542,7 @@ export default function EditorPage() {
     }
   };
 
-  // New independent image dragging handlers
+  // Unified image dragging handlers
   const handleImageMouseDown = (event: React.MouseEvent) => {
     if (!image) return;
     event.preventDefault();
@@ -69,26 +550,27 @@ export default function EditorPage() {
 
     setDragging({
       isDragging: true,
-      startX: event.clientX - imagePosition.x,
-      startY: event.clientY - imagePosition.y,
+      startX: event.clientX - imageTransforms.x,
+      startY: event.clientY - imageTransforms.y,
+      type: 'move',
     });
   };
 
   const handleImageMouseMove = useCallback((event: React.MouseEvent) => {
-    if (!dragging || !dragging.isDragging) return;
+    if (!dragging || !dragging.isDragging || dragging.type !== 'move') return;
 
     const newX = event.clientX - dragging.startX;
     const newY = event.clientY - dragging.startY;
 
     // Update image position immediately for smooth dragging
-    setImagePosition({ x: newX, y: newY });
+    setImageTransforms(prev => ({ ...prev, x: newX, y: newY }));
   }, [dragging]);
 
   const handleImageMouseUp = () => {
     setDragging(null);
   };
 
-  // Keep old handlers for container interactions (if needed)
+  // Unified container interaction handlers
   const handleMouseDown = (container: ContainerType, event: React.MouseEvent) => {
     if (!image) return;
     event.preventDefault();
@@ -98,11 +580,12 @@ export default function EditorPage() {
       isDragging: true,
       startX: event.clientX - rect.left,
       startY: event.clientY - rect.top,
+      type: 'move',
     });
   };
 
   const handleMouseMove = useCallback((event: React.MouseEvent, containerType: ContainerType) => {
-    if (!dragging || !dragging.isDragging) return;
+    if (!dragging || !dragging.isDragging || dragging.type !== 'move') return;
 
     const container = event.currentTarget as HTMLElement;
     const rect = container.getBoundingClientRect();
@@ -113,14 +596,11 @@ export default function EditorPage() {
     const deltaX = x - dragging.startX;
     const deltaY = y - dragging.startY;
 
-    // Update transforms immediately for direct cursor tracking - no delay
-    setCropTransforms(prev => ({
+    // Update unified transforms immediately for direct cursor tracking - no delay
+    setImageTransforms(prev => ({
       ...prev,
-      [containerType]: {
-        ...prev[containerType],
-        x: prev[containerType].x + deltaX,
-        y: prev[containerType].y + deltaY,
-      }
+      x: prev.x + deltaX,
+      y: prev.y + deltaY,
     }));
 
     setDragging({
@@ -134,37 +614,24 @@ export default function EditorPage() {
     setDragging(null);
   };
 
-  const handleScaleChange = (container: ContainerType, scale: number) => {
-    setCropTransforms(prev => ({
+  // Unified image manipulation handlers
+  const handleScaleChange = (scale: number) => {
+    setImageTransforms(prev => ({
       ...prev,
-      [container]: {
-        ...prev[container],
-        scale: Math.max(20, Math.min(300, scale)),
-      }
+      scale: Math.max(20, Math.min(300, scale)),
     }));
   };
 
-  const handleReset = (container: ContainerType) => {
-    const defaultScale = container === 'leftSleeve' || container === 'rightSleeve' ? 80 : 100;
-    setCropTransforms(prev => ({
+  const handleCropChange = (edge: 'left' | 'right' | 'top' | 'bottom', cropValue: number) => {
+    setImageTransforms(prev => ({
       ...prev,
-      [container]: { x: 0, y: 0, scale: defaultScale, rotation: 0, cropLeft: 0, cropRight: 0, cropTop: 0, cropBottom: 0 },
+      [edge === 'left' ? 'cropLeft' : edge === 'right' ? 'cropRight' : edge === 'top' ? 'cropTop' : 'cropBottom']: Math.max(0, Math.min(200, cropValue))
     }));
   };
 
-  const handleCropChange = (container: ContainerType, edge: 'left' | 'right' | 'top' | 'bottom', cropValue: number) => {
-    setCropTransforms(prev => ({
-      ...prev,
-      [container]: {
-        ...prev[container],
-        [edge === 'left' ? 'cropLeft' : edge === 'right' ? 'cropRight' : edge === 'top' ? 'cropTop' : 'cropBottom']: Math.max(0, Math.min(200, cropValue))
-      }
-    }));
-  };
-
-  const handleEdgeCrop = (container: ContainerType, edge: 'left' | 'right' | 'top' | 'bottom', delta: number) => {
-    setCropTransforms(prev => {
-      const currentCrop = prev[container][edge === 'left' ? 'cropLeft' : edge === 'right' ? 'cropRight' : edge === 'top' ? 'cropTop' : 'cropBottom'];
+  const handleEdgeCrop = (edge: 'left' | 'right' | 'top' | 'bottom', delta: number) => {
+    setImageTransforms(prev => {
+      const currentCrop = prev[edge === 'left' ? 'cropLeft' : edge === 'right' ? 'cropRight' : edge === 'top' ? 'cropTop' : 'cropBottom'];
       // Intuitive: dragging outward (positive delta) = decrease crop (show more)
       // Dragging inward (negative delta) = increase crop (show less)
       const cropChange = -delta * 0.5;
@@ -172,32 +639,117 @@ export default function EditorPage() {
 
       return {
         ...prev,
-        [container]: {
-          ...prev[container],
-          [edge === 'left' ? 'cropLeft' : edge === 'right' ? 'cropRight' : edge === 'top' ? 'cropTop' : 'cropBottom']: Math.round(newCrop)
-        }
+        [edge === 'left' ? 'cropLeft' : edge === 'right' ? 'cropRight' : edge === 'top' ? 'cropTop' : 'cropBottom']: Math.round(newCrop)
       };
     });
   };
 
-  const handleRotationChange = (container: ContainerType, rotation: number) => {
-    setCropTransforms(prev => ({
+  const handleRotationChange = (rotation: number) => {
+    setImageTransforms(prev => ({
       ...prev,
-      [container]: {
-        ...prev[container],
-        rotation: rotation,
-      }
+      rotation: rotation,
     }));
   };
 
-  // Independent image scale handler
+  // Unified image scale handler
   const handleImageScaleChange = (scale: number) => {
-    setImageScale(Math.max(20, Math.min(300, scale)));
+    setImageTransforms(prev => ({
+      ...prev,
+      scale: Math.max(20, Math.min(300, scale)),
+    }));
   };
 
-  // Independent image rotation handler
+  // Unified image rotation handler
   const handleImageRotationChange = (rotation: number) => {
-    setImageRotation(Math.max(-180, Math.min(180, rotation)));
+    setImageTransforms(prev => ({
+      ...prev,
+      rotation: Math.max(-180, Math.min(180, rotation)),
+    }));
+  };
+
+  // Unified image manipulation handlers
+  const handleCropToRatio = (ratio: 'square' | '4:3' | '3:4' | '16:9' | '9:16') => {
+    if (!image) return;
+
+    const ratios = {
+      'square': { width: 1, height: 1 },
+      '4:3': { width: 4, height: 3 },
+      '3:4': { width: 3, height: 4 },
+      '16:9': { width: 16, height: 9 },
+      '9:16': { width: 9, height: 16 }
+    };
+
+    const { width, height } = ratios[ratio];
+    const maxSize = 200;
+    const newWidth = Math.min(maxSize, width * 50);
+    const newHeight = Math.min(maxSize, height * 50);
+
+    setImageTransforms(prev => ({
+      ...prev,
+      cropLeft: Math.max(0, (maxSize - newWidth) / 2),
+      cropRight: Math.max(0, (maxSize - newWidth) / 2),
+      cropTop: Math.max(0, (maxSize - newHeight) / 2),
+      cropBottom: Math.max(0, (maxSize - newHeight) / 2),
+    }));
+  };
+
+  const handleFitToArea = () => {
+    if (!image) return;
+
+    setImageTransforms(prev => ({
+      ...prev,
+      cropLeft: 0,
+      cropRight: 0,
+      cropTop: 0,
+      cropBottom: 0,
+      scale: 100,
+    }));
+  };
+
+  const handleFlipHorizontal = () => {
+    setImageTransforms(prev => ({
+      ...prev,
+      rotation: (prev.rotation + 180) % 360,
+    }));
+  };
+
+  const handleFlipVertical = () => {
+    setImageTransforms(prev => ({
+      ...prev,
+      rotation: (prev.rotation + 180) % 360,
+      scale: prev.scale * -1,
+    }));
+  };
+
+  const handleRotate90Clockwise = () => {
+    setImageTransforms(prev => ({
+      ...prev,
+      rotation: (prev.rotation + 90) % 360,
+    }));
+  };
+
+  const handleRotate90CounterClockwise = () => {
+    setImageTransforms(prev => ({
+      ...prev,
+      rotation: (prev.rotation - 90 + 360) % 360,
+    }));
+  };
+
+  const handleCenterImage = () => {
+    setImageTransforms(prev => ({ ...prev, x: 0, y: 0 }));
+  };
+
+  const handleResetAll = () => {
+    setImageTransforms({
+      x: 0,
+      y: 0,
+      scale: 60,
+      rotation: 0,
+      cropLeft: 0,
+      cropRight: 0,
+      cropTop: 0,
+      cropBottom: 0,
+    });
   };
 
   const renderContainer = (
@@ -294,6 +846,141 @@ export default function EditorPage() {
             </div>
           </div>
 
+          {/* Image Manipulation Controls */}
+          {image && (
+            <div className="mb-6">
+              <label className="block text-sm font-semibold text-gray-700 mb-3">Crop & Resize</label>
+
+              {/* Crop Ratio Buttons */}
+              <div className="mb-4">
+                <p className="text-xs text-gray-600 mb-2">Crop to Ratio:</p>
+                <div className="grid grid-cols-3 gap-1">
+                  {[
+                    { label: '1:1', ratio: 'square' as const },
+                    { label: '4:3', ratio: '4:3' as const },
+                    { label: '3:4', ratio: '3:4' as const },
+                    { label: '16:9', ratio: '16:9' as const },
+                    { label: '9:16', ratio: '9:16' as const },
+                    { label: 'Fit', ratio: null as any },
+                  ].map((item) => (
+                    <button
+                      key={item.label}
+                      onClick={() => item.ratio ? handleCropToRatio(item.ratio) : handleFitToArea()}
+                      className="px-2 py-1 text-xs bg-gray-100 hover:bg-gray-200 text-gray-700 rounded transition-colors"
+                    >
+                      {item.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Transform Buttons */}
+              <div className="mb-4">
+                <p className="text-xs text-gray-600 mb-2">Transform:</p>
+                <div className="grid grid-cols-2 gap-1">
+                  <button
+                    onClick={handleRotate90Clockwise}
+                    className="px-2 py-1 text-xs bg-gray-100 hover:bg-gray-200 text-gray-700 rounded transition-colors flex items-center gap-1"
+                  >
+                    <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                    </svg>
+                    90°
+                  </button>
+                  <button
+                    onClick={handleRotate90CounterClockwise}
+                    className="px-2 py-1 text-xs bg-gray-100 hover:bg-gray-200 text-gray-700 rounded transition-colors flex items-center gap-1"
+                  >
+                    <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                    </svg>
+                    -90°
+                  </button>
+                  <button
+                    onClick={handleFlipHorizontal}
+                    className="px-2 py-1 text-xs bg-gray-100 hover:bg-gray-200 text-gray-700 rounded transition-colors flex items-center gap-1"
+                  >
+                    <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7h12m0 0l-4-4m4 4l-4 4M16 17H4m0 0l4 4m-4-4l4-4" />
+                    </svg>
+                    Flip H
+                  </button>
+                  <button
+                    onClick={handleFlipVertical}
+                    className="px-2 py-1 text-xs bg-gray-100 hover:bg-gray-200 text-gray-700 rounded transition-colors flex items-center gap-1"
+                  >
+                    <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16V4m0 0L3 8m4-4l4 4m1 0v12m0 0l4-4m-4 4l-4-4" />
+                    </svg>
+                    Flip V
+                  </button>
+                </div>
+              </div>
+
+              {/* Position Buttons */}
+              <div className="mb-4">
+                <p className="text-xs text-gray-600 mb-2">Position:</p>
+                <div className="grid grid-cols-3 gap-1">
+                  <button
+                    onClick={handleCenterImage}
+                    className="px-2 py-1 text-xs bg-gray-100 hover:bg-gray-200 text-gray-700 rounded transition-colors"
+                  >
+                    Center
+                  </button>
+                  <button
+                    onClick={() => setImageTransforms(prev => ({ ...prev, y: prev.y - 20 }))}
+                    className="px-2 py-1 text-xs bg-gray-100 hover:bg-gray-200 text-gray-700 rounded transition-colors"
+                  >
+                    ↑ Up
+                  </button>
+                  <button
+                    onClick={() => setImageTransforms(prev => ({ ...prev, y: prev.y + 20 }))}
+                    className="px-2 py-1 text-xs bg-gray-100 hover:bg-gray-200 text-gray-700 rounded transition-colors"
+                  >
+                    ↓ Down
+                  </button>
+                  <button
+                    onClick={() => setImageTransforms(prev => ({ ...prev, x: prev.x - 20 }))}
+                    className="px-2 py-1 text-xs bg-gray-100 hover:bg-gray-200 text-gray-700 rounded transition-colors"
+                  >
+                    ← Left
+                  </button>
+                  <button
+                    onClick={() => setImageTransforms(prev => ({ ...prev, x: prev.x + 20 }))}
+                    className="px-2 py-1 text-xs bg-gray-100 hover:bg-gray-200 text-gray-700 rounded transition-colors"
+                  >
+                    → Right
+                  </button>
+                  <button
+                    onClick={handleResetAll}
+                    className="px-2 py-1 text-xs bg-red-100 hover:bg-red-200 text-red-700 rounded transition-colors"
+                  >
+                    Reset All
+                  </button>
+                </div>
+              </div>
+
+              {/* Quick Scale Buttons */}
+              <div className="mb-4">
+                <p className="text-xs text-gray-600 mb-2">Quick Scale:</p>
+                <div className="grid grid-cols-4 gap-1">
+                  {[25, 50, 75, 100].map((scale) => (
+                    <button
+                      key={scale}
+                      onClick={() => handleImageScaleChange(scale)}
+                      className={`px-2 py-1 text-xs rounded transition-colors ${imageTransforms.scale === scale
+                        ? 'bg-pink-500 text-white'
+                        : 'bg-gray-100 hover:bg-gray-200 text-gray-700'
+                        }`}
+                    >
+                      {scale}%
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* Instructions */}
           <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
             <div className="flex items-start gap-3">
@@ -303,8 +990,9 @@ export default function EditorPage() {
               <div className="text-xs text-blue-800 space-y-1">
                 <p className="font-semibold">How to use:</p>
                 <p>• Upload your design image</p>
-                <p>• Drag to position in each area</p>
-                <p>• Use sliders to adjust scale</p>
+                <p>• Use crop buttons for quick ratios</p>
+                <p>• Drag corners to resize manually</p>
+                <p>• Use transform buttons to rotate/flip</p>
                 <p>• View real-time 3D preview</p>
               </div>
             </div>
@@ -344,400 +1032,17 @@ export default function EditorPage() {
                 </div>
               </div>
 
-              {/* Independent Draggable Image - Positioned at Bottom */}
+              {/* Unified Image Control Component */}
               {image && (
-                <div
-                  className="absolute z-10"
-                  style={{
-                    transform: `translate3d(${imagePosition.x}px, ${imagePosition.y}px, 0)`,
-                    width: 'fit-content',
-                    height: 'fit-content',
-                    transition: dragging?.isDragging ? 'none' : 'transform 0.1s ease-out',
-                    willChange: 'transform',
-                    backfaceVisibility: 'hidden',
-                    WebkitBackfaceVisibility: 'hidden',
-                    transformStyle: 'preserve-3d',
-                    WebkitTransformStyle: 'preserve-3d',
-                  }}
-                >
-                  {/* Image with Independent Transform Controls */}
-                  <div className="relative group">
-                    {/* Design Image - Independent Size and Position */}
-                    <img
-                      src={image}
-                      alt="Design"
-                      className="select-none block cursor-move"
-                      style={{
-                        transform: `scale(${imageScale / 100}) rotate(${imageRotation}deg)`,
-                        maxWidth: '300px',
-                        maxHeight: '300px',
-                        willChange: 'transform',
-                        backfaceVisibility: 'hidden',
-                        WebkitBackfaceVisibility: 'hidden',
-                        userSelect: 'none',
-                      }}
-                      draggable={false}
-                      onMouseDown={handleImageMouseDown}
-                    />
-
-                    {/* Invisible drag area for better UX */}
-                    <div
-                      className="absolute inset-0 cursor-move"
-                      onMouseDown={handleImageMouseDown}
-                      onMouseMove={handleImageMouseMove}
-                      onMouseUp={handleImageMouseUp}
-                      onMouseLeave={handleImageMouseUp}
-                    ></div>
-
-                    {/* Corner Resize Handles - Responsive to Image Scale */}
-                    <div
-                      className="absolute w-2 h-2 bg-red-500 border border-white transform rotate-45 cursor-nw-resize hover:scale-150 transition-transform"
-                      style={{
-                        top: `${-cropTransforms.front.cropTop - 2}px`,
-                        left: `${-cropTransforms.front.cropLeft - 2}px`,
-                        transform: `rotate(45deg) scale(${cropTransforms.front.scale / 100})`,
-                        transformOrigin: 'center center',
-                      }}
-                      onMouseDown={(e) => {
-                        e.stopPropagation();
-                        const startScale = cropTransforms.front.scale;
-                        const startMouseX = e.clientX;
-                        const startMouseY = e.clientY;
-
-                        const handleCornerResize = (moveEvent: MouseEvent) => {
-                          const deltaX = startMouseX - moveEvent.clientX;
-                          const deltaY = startMouseY - moveEvent.clientY;
-                          const distance = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
-                          const angle = Math.atan2(deltaY, deltaX);
-
-                          let scaleChange = 0;
-                          if (angle >= -Math.PI / 4 && angle <= Math.PI / 4) {
-                            scaleChange = distance * 0.3;
-                          } else {
-                            scaleChange = -distance * 0.3;
-                          }
-
-                          const newScale = Math.max(20, Math.min(300, startScale + scaleChange));
-                          handleScaleChange('front', Math.round(newScale));
-                        };
-
-                        const handleEnd = () => {
-                          document.removeEventListener('mousemove', handleCornerResize);
-                          document.removeEventListener('mouseup', handleEnd);
-                        };
-
-                        document.addEventListener('mousemove', handleCornerResize);
-                        document.addEventListener('mouseup', handleEnd);
-                      }}
-                    ></div>
-                    <div
-                      className="absolute w-2 h-2 bg-red-500 border border-white transform rotate-45 cursor-ne-resize hover:scale-150 transition-transform"
-                      style={{
-                        top: `${-cropTransforms.front.cropTop - 2}px`,
-                        right: `${-cropTransforms.front.cropRight - 2}px`,
-                        transform: `rotate(45deg) scale(${cropTransforms.front.scale / 100})`,
-                        transformOrigin: 'center center',
-                      }}
-                      onMouseDown={(e) => {
-                        e.stopPropagation();
-                        const startScale = cropTransforms.front.scale;
-                        const startMouseX = e.clientX;
-                        const startMouseY = e.clientY;
-
-                        const handleCornerResize = (moveEvent: MouseEvent) => {
-                          const deltaX = moveEvent.clientX - startMouseX;
-                          const deltaY = startMouseY - moveEvent.clientY;
-                          const distance = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
-                          const angle = Math.atan2(deltaY, deltaX);
-
-                          let scaleChange = 0;
-                          if (angle >= -Math.PI / 4 && angle <= Math.PI / 4) {
-                            scaleChange = distance * 0.3;
-                          } else {
-                            scaleChange = -distance * 0.3;
-                          }
-
-                          const newScale = Math.max(20, Math.min(300, startScale + scaleChange));
-                          handleScaleChange('front', Math.round(newScale));
-                        };
-
-                        const handleEnd = () => {
-                          document.removeEventListener('mousemove', handleCornerResize);
-                          document.removeEventListener('mouseup', handleEnd);
-                        };
-
-                        document.addEventListener('mousemove', handleCornerResize);
-                        document.addEventListener('mouseup', handleEnd);
-                      }}
-                    ></div>
-                    <div
-                      className="absolute w-2 h-2 bg-red-500 border border-white transform rotate-45 cursor-sw-resize hover:scale-150 transition-transform"
-                      style={{
-                        bottom: `${-cropTransforms.front.cropBottom - 2}px`,
-                        left: `${-cropTransforms.front.cropLeft - 2}px`,
-                        transform: `rotate(45deg) scale(${cropTransforms.front.scale / 100})`,
-                        transformOrigin: 'center center',
-                      }}
-                      onMouseDown={(e) => {
-                        e.stopPropagation();
-                        const startScale = cropTransforms.front.scale;
-                        const startMouseX = e.clientX;
-                        const startMouseY = e.clientY;
-
-                        const handleCornerResize = (moveEvent: MouseEvent) => {
-                          const deltaX = startMouseX - moveEvent.clientX;
-                          const deltaY = moveEvent.clientY - startMouseY;
-                          const distance = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
-                          const angle = Math.atan2(deltaY, deltaX);
-
-                          let scaleChange = 0;
-                          if (angle >= -Math.PI / 4 && angle <= Math.PI / 4) {
-                            scaleChange = distance * 0.3;
-                          } else {
-                            scaleChange = -distance * 0.3;
-                          }
-
-                          const newScale = Math.max(20, Math.min(300, startScale + scaleChange));
-                          handleScaleChange('front', Math.round(newScale));
-                        };
-
-                        const handleEnd = () => {
-                          document.removeEventListener('mousemove', handleCornerResize);
-                          document.removeEventListener('mouseup', handleEnd);
-                        };
-
-                        document.addEventListener('mousemove', handleCornerResize);
-                        document.addEventListener('mouseup', handleEnd);
-                      }}
-                    ></div>
-                    <div
-                      className="absolute w-2 h-2 bg-red-500 border border-white transform rotate-45 cursor-se-resize hover:scale-150 transition-transform"
-                      style={{
-                        bottom: `${-cropTransforms.front.cropBottom - 2}px`,
-                        right: `${-cropTransforms.front.cropRight - 2}px`,
-                        transform: `rotate(45deg) scale(${cropTransforms.front.scale / 100})`,
-                        transformOrigin: 'center center',
-                      }}
-                      onMouseDown={(e) => {
-                        e.stopPropagation();
-                        const startScale = cropTransforms.front.scale;
-                        const startMouseX = e.clientX;
-                        const startMouseY = e.clientY;
-
-                        const handleCornerResize = (moveEvent: MouseEvent) => {
-                          const deltaX = moveEvent.clientX - startMouseX;
-                          const deltaY = moveEvent.clientY - startMouseY;
-                          const distance = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
-                          const angle = Math.atan2(deltaY, deltaX);
-
-                          let scaleChange = 0;
-                          if (angle >= -Math.PI / 4 && angle <= Math.PI / 4) {
-                            scaleChange = distance * 0.3;
-                          } else {
-                            scaleChange = -distance * 0.3;
-                          }
-
-                          const newScale = Math.max(20, Math.min(300, startScale + scaleChange));
-                          handleScaleChange('front', Math.round(newScale));
-                        };
-
-                        const handleEnd = () => {
-                          document.removeEventListener('mousemove', handleCornerResize);
-                          document.removeEventListener('mouseup', handleEnd);
-                        };
-
-                        document.addEventListener('mousemove', handleCornerResize);
-                        document.addEventListener('mouseup', handleEnd);
-                      }}
-                    ></div>
-
-                    {/* Edge Crop Handles - Responsive to Image Scale and Crop Values */}
-                    <div
-                      className="absolute w-4 h-1 bg-red-500 border border-white cursor-n-resize hover:scale-150 transition-transform"
-                      style={{
-                        top: `${-cropTransforms.front.cropTop - 2}px`,
-                        left: '50%',
-                        transform: `translateX(-50%) scale(${cropTransforms.front.scale / 100})`,
-                        transformOrigin: 'center center',
-                      }}
-                      onMouseDown={(e) => {
-                        e.stopPropagation();
-                        const startMouseY = e.clientY;
-
-                        const handleTopCrop = (moveEvent: MouseEvent) => {
-                          const deltaY = startMouseY - moveEvent.clientY;
-                          handleEdgeCrop('front', 'top', deltaY);
-                        };
-
-                        const handleEnd = () => {
-                          document.removeEventListener('mousemove', handleTopCrop);
-                          document.removeEventListener('mouseup', handleEnd);
-                        };
-
-                        document.addEventListener('mousemove', handleTopCrop);
-                        document.addEventListener('mouseup', handleEnd);
-                      }}
-                    ></div>
-                    <div
-                      className="absolute w-4 h-1 bg-red-500 border border-white cursor-s-resize hover:scale-150 transition-transform"
-                      style={{
-                        bottom: `${-cropTransforms.front.cropBottom - 2}px`,
-                        left: '50%',
-                        transform: `translateX(-50%) scale(${cropTransforms.front.scale / 100})`,
-                        transformOrigin: 'center center',
-                      }}
-                      onMouseDown={(e) => {
-                        e.stopPropagation();
-                        const startCrop = cropTransforms.front.cropBottom;
-                        const startMouseY = e.clientY;
-
-                        const handleBottomCrop = (moveEvent: MouseEvent) => {
-                          const deltaY = moveEvent.clientY - startMouseY;
-                          const cropChange = -deltaY * 0.5;
-                          const newCrop = Math.max(0, Math.min(200, startCrop + cropChange));
-                          handleCropChange('front', 'bottom', Math.round(newCrop));
-                        };
-
-                        const handleEnd = () => {
-                          document.removeEventListener('mousemove', handleBottomCrop);
-                          document.removeEventListener('mouseup', handleEnd);
-                        };
-
-                        document.addEventListener('mousemove', handleBottomCrop);
-                        document.addEventListener('mouseup', handleEnd);
-                      }}
-                    ></div>
-                    <div
-                      className="absolute w-1 h-4 bg-red-500 border border-white cursor-w-resize hover:scale-150 transition-transform"
-                      style={{
-                        top: '50%',
-                        left: `${-cropTransforms.front.cropLeft - 2}px`,
-                        transform: `translateY(-50%) scale(${cropTransforms.front.scale / 100})`,
-                        transformOrigin: 'center center',
-                      }}
-                      onMouseDown={(e) => {
-                        e.stopPropagation();
-                        const startCrop = cropTransforms.front.cropLeft;
-                        const startMouseX = e.clientX;
-
-                        const handleLeftCrop = (moveEvent: MouseEvent) => {
-                          const deltaX = startMouseX - moveEvent.clientX;
-                          const cropChange = -deltaX * 0.5;
-                          const newCrop = Math.max(0, Math.min(200, startCrop + cropChange));
-                          handleCropChange('front', 'left', Math.round(newCrop));
-                        };
-
-                        const handleEnd = () => {
-                          document.removeEventListener('mousemove', handleLeftCrop);
-                          document.removeEventListener('mouseup', handleEnd);
-                        };
-
-                        document.addEventListener('mousemove', handleLeftCrop);
-                        document.addEventListener('mouseup', handleEnd);
-                      }}
-                    ></div>
-                    <div
-                      className="absolute w-1 h-4 bg-red-500 border border-white cursor-e-resize hover:scale-150 transition-transform"
-                      style={{
-                        top: '50%',
-                        right: `${-cropTransforms.front.cropRight - 2}px`,
-                        transform: `translateY(-50%) scale(${cropTransforms.front.scale / 100})`,
-                        transformOrigin: 'center center',
-                      }}
-                      onMouseDown={(e) => {
-                        e.stopPropagation();
-                        const startCrop = cropTransforms.front.cropRight;
-                        const startMouseX = e.clientX;
-
-                        const handleRightCrop = (moveEvent: MouseEvent) => {
-                          const deltaX = moveEvent.clientX - startMouseX;
-                          const cropChange = -deltaX * 0.5;
-                          const newCrop = Math.max(0, Math.min(200, startCrop + cropChange));
-                          handleCropChange('front', 'right', Math.round(newCrop));
-                        };
-
-                        const handleEnd = () => {
-                          document.removeEventListener('mousemove', handleRightCrop);
-                          document.removeEventListener('mouseup', handleEnd);
-                        };
-
-                        document.addEventListener('mousemove', handleRightCrop);
-                        document.addEventListener('mouseup', handleEnd);
-                      }}
-                    ></div>
-
-                    {/* Rotation Control - Responsive to Image Scale */}
-                    <div
-                      className="absolute"
-                      style={{
-                        top: `${-cropTransforms.front.cropTop - 28}px`,
-                        left: '50%',
-                        transform: `translateX(-50%) scale(${cropTransforms.front.scale / 100})`,
-                        transformOrigin: 'center center',
-                      }}
-                      onMouseDown={(e) => {
-                        e.stopPropagation();
-                        const startRotation = cropTransforms.front.rotation;
-                        const startMouseX = e.clientX;
-
-                        const handleRotationMove = (moveEvent: MouseEvent) => {
-                          const deltaX = moveEvent.clientX - startMouseX;
-                          const newRotation = startRotation + (deltaX * 0.5);
-                          handleRotationChange('front', Math.max(-180, Math.min(180, newRotation)));
-                        };
-
-                        const handleRotationEnd = () => {
-                          document.removeEventListener('mousemove', handleRotationMove);
-                          document.removeEventListener('mouseup', handleRotationEnd);
-                        };
-
-                        document.addEventListener('mousemove', handleRotationMove);
-                        document.addEventListener('mouseup', handleRotationEnd);
-                      }}
-                    >
-                      <div className="w-4 h-4 bg-red-500 rounded-full border border-white flex items-center justify-center cursor-pointer hover:scale-125 transition-transform">
-                        <svg className="w-2 h-2 text-white" fill="currentColor" viewBox="0 0 24 24">
-                          <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
-                        </svg>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {/* Reset Button for Independent Image */}
-              {image && (
-                <button
-                  onClick={() => {
-                    setImagePosition({ x: 0, y: 0 });
-                    setImageScale(60);
-                    setImageRotation(0);
-                  }}
-                  className="absolute top-2 right-2 z-20 text-xs text-pink-600 hover:text-pink-700 font-medium bg-white/90 px-2 py-1 rounded shadow"
-                >
-                  Reset
-                </button>
-              )}
-
-              {/* Independent Image Scale Control */}
-              {image && (
-                <div className="absolute top-2 left-2 z-20 bg-white/90 backdrop-blur-sm rounded-lg px-3 py-2 shadow-lg">
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs text-gray-600 font-medium">Scale:</span>
-                    <span className="text-xs font-bold text-pink-600">{imageScale}%</span>
-                    <input
-                      type="range"
-                      min="20"
-                      max="300"
-                      value={imageScale}
-                      onChange={(e) => handleImageScaleChange(parseInt(e.target.value))}
-                      className="w-20 h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"
-                      style={{
-                        background: `linear-gradient(to right, #ec4899 0%, #ec4899 ${(imageScale - 20) / 2.8}%, #e5e7eb ${(imageScale - 20) / 2.8}%, #e5e7eb 100%)`
-                      }}
-                    />
-                  </div>
-                </div>
+                <UnifiedImageControl
+                  image={image}
+                  transforms={imageTransforms}
+                  onTransform={setImageTransforms}
+                  onDragStart={handleImageMouseDown}
+                  onDragMove={handleImageMouseMove}
+                  onDragEnd={handleImageMouseUp}
+                  isDragging={dragging?.isDragging || false}
+                />
               )}
             </div>
           </div>
@@ -789,24 +1094,24 @@ export default function EditorPage() {
             } : {}}
             textureTransforms={{
               front: {
-                position: { x: cropTransforms.front.x / 200, y: -cropTransforms.front.y / 200 },
-                scale: cropTransforms.front.scale,
-                rotation: cropTransforms.front.rotation
+                position: { x: imageTransforms.x / 200, y: -imageTransforms.y / 200 },
+                scale: imageTransforms.scale,
+                rotation: imageTransforms.rotation
               },
               back: {
-                position: { x: cropTransforms.back.x / 200, y: -cropTransforms.back.y / 200 },
-                scale: cropTransforms.back.scale,
-                rotation: cropTransforms.back.rotation
+                position: { x: imageTransforms.x / 200, y: -imageTransforms.y / 200 },
+                scale: imageTransforms.scale,
+                rotation: imageTransforms.rotation
               },
               leftSleeve: {
-                position: { x: cropTransforms.leftSleeve.x / 200, y: -cropTransforms.leftSleeve.y / 200 },
-                scale: cropTransforms.leftSleeve.scale,
-                rotation: cropTransforms.leftSleeve.rotation
+                position: { x: imageTransforms.x / 200, y: -imageTransforms.y / 200 },
+                scale: imageTransforms.scale,
+                rotation: imageTransforms.rotation
               },
               rightSleeve: {
-                position: { x: cropTransforms.rightSleeve.x / 200, y: -cropTransforms.rightSleeve.y / 200 },
-                scale: cropTransforms.rightSleeve.scale,
-                rotation: cropTransforms.rightSleeve.rotation
+                position: { x: imageTransforms.x / 200, y: -imageTransforms.y / 200 },
+                scale: imageTransforms.scale,
+                rotation: imageTransforms.rotation
               },
             }}
           />
