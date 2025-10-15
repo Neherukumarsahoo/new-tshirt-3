@@ -29,33 +29,25 @@ interface CropTransform {
 type ContainerType = 'front' | 'back' | 'leftSleeve' | 'rightSleeve';
 
 export default function EditorPage() {
+  const [image, setImage] = useState<string | null>(null);
   const [tshirtColor, setTshirtColor] = useState('#ffffff');
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Section-based images (mockey.ai logic - each section is independent)
-  const [sectionImages, setSectionImages] = useState<Record<ContainerType, string | null>>({
-    front: null,
-    back: null,
-    leftSleeve: null,
-    rightSleeve: null,
-  });
-
-  // Section-based crop transforms (mockey.ai style cropping)
+  // Separate crop transforms for each container (mockey.ai style cropping)
   const [cropTransforms, setCropTransforms] = useState<Record<ContainerType, CropTransform>>({
-    front: { x: 0, y: 0, scale: 100, rotation: 0, cropLeft: 0, cropRight: 0, cropTop: 0, cropBottom: 0 },
-    back: { x: 0, y: 0, scale: 100, rotation: 0, cropLeft: 0, cropRight: 0, cropTop: 0, cropBottom: 0 },
-    leftSleeve: { x: 0, y: 0, scale: 80, rotation: 0, cropLeft: 0, cropRight: 0, cropTop: 0, cropBottom: 0 },
-    rightSleeve: { x: 0, y: 0, scale: 80, rotation: 0, cropLeft: 0, cropRight: 0, cropTop: 0, cropBottom: 0 },
+    front: { x: 0, y: 0, scale: 60, rotation: 0, cropLeft: 0, cropRight: 0, cropTop: 0, cropBottom: 0 }, // Reduced to 60% for better fit
+    back: { x: 0, y: 0, scale: 60, rotation: 0, cropLeft: 0, cropRight: 0, cropTop: 0, cropBottom: 0 },
+    leftSleeve: { x: 0, y: 0, scale: 50, rotation: 0, cropLeft: 0, cropRight: 0, cropTop: 0, cropBottom: 0 },
+    rightSleeve: { x: 0, y: 0, scale: 50, rotation: 0, cropLeft: 0, cropRight: 0, cropTop: 0, cropBottom: 0 },
   });
 
-  // Dragging state for section-based placement
-  const [dragging, setDragging] = useState<{ isDragging: boolean; startX: number; startY: number; section: ContainerType } | null>(null);
+  // Independent draggable image position (separate from container transforms)
+  const [imagePosition, setImagePosition] = useState({ x: 0, y: 0 }); // Start at center
+  const [imageScale, setImageScale] = useState(60);
+  const [imageRotation, setImageRotation] = useState(0);
 
-  // Hover state for visual feedback
-  const [hoveredSection, setHoveredSection] = useState<ContainerType | null>(null);
-
-  // Tooltip state
-  const [tooltipPosition, setTooltipPosition] = useState<{ x: number; y: number } | null>(null);
+  // Dragging state for the independent image
+  const [dragging, setDragging] = useState<{ isDragging: boolean; startX: number; startY: number } | null>(null);
 
   const handleUpload = () => {
     fileInputRef.current?.click();
@@ -65,73 +57,89 @@ export default function EditorPage() {
     const file = event.target.files?.[0];
     if (file) {
       const url = URL.createObjectURL(file);
-      // For now, place on front section as default
-      setSectionImages(prev => ({
-        ...prev,
-        front: url
-      }));
+      setImage(url);
     }
   };
 
-  // Section-based dragging handlers
-  const handleSectionMouseDown = (section: ContainerType, event: React.PointerEvent) => {
-    const sectionImage = sectionImages[section];
-    if (!sectionImage) return;
+  // New independent image dragging handlers
+  const handleImageMouseDown = (event: React.MouseEvent) => {
+    if (!image) return;
     event.preventDefault();
     event.stopPropagation();
 
-    try {
-      (event.currentTarget as Element).setPointerCapture?.(event.pointerId);
-    } catch (err) { }
-
     setDragging({
       isDragging: true,
-      startX: event.clientX,
-      startY: event.clientY,
-      section
+      startX: event.clientX - imagePosition.x,
+      startY: event.clientY - imagePosition.y,
     });
   };
 
-  const handleSectionMouseMove = useCallback((event: React.PointerEvent) => {
+  const handleImageMouseMove = useCallback((event: React.MouseEvent) => {
     if (!dragging || !dragging.isDragging) return;
 
-    const deltaX = event.clientX - dragging.startX;
-    const deltaY = event.clientY - dragging.startY;
+    const newX = event.clientX - dragging.startX;
+    const newY = event.clientY - dragging.startY;
 
+    // Update image position immediately for smooth dragging
+    setImagePosition({ x: newX, y: newY });
+  }, [dragging]);
+
+  const handleImageMouseUp = () => {
+    setDragging(null);
+  };
+
+  // Keep old handlers for container interactions (if needed)
+  const handleMouseDown = (container: ContainerType, event: React.MouseEvent) => {
+    if (!image) return;
+    event.preventDefault();
+
+    const rect = event.currentTarget.getBoundingClientRect();
+    setDragging({
+      isDragging: true,
+      startX: event.clientX - rect.left,
+      startY: event.clientY - rect.top,
+    });
+  };
+
+  const handleMouseMove = useCallback((event: React.MouseEvent, containerType: ContainerType) => {
+    if (!dragging || !dragging.isDragging) return;
+
+    const container = event.currentTarget as HTMLElement;
+    const rect = container.getBoundingClientRect();
+
+    const x = event.clientX - rect.left;
+    const y = event.clientY - rect.top;
+
+    const deltaX = x - dragging.startX;
+    const deltaY = y - dragging.startY;
+
+    // Update transforms immediately for direct cursor tracking - no delay
     setCropTransforms(prev => ({
       ...prev,
-      [dragging.section]: {
-        ...prev[dragging.section],
-        x: prev[dragging.section].x + deltaX,
-        y: prev[dragging.section].y + deltaY,
+      [containerType]: {
+        ...prev[containerType],
+        x: prev[containerType].x + deltaX,
+        y: prev[containerType].y + deltaY,
       }
     }));
 
     setDragging({
       ...dragging,
-      startX: event.clientX,
-      startY: event.clientY,
+      startX: x,
+      startY: y,
     });
   }, [dragging]);
 
-  const handleSectionMouseUp = (event?: React.PointerEvent) => {
-    try {
-      (event?.currentTarget as Element)?.releasePointerCapture?.((event as any)?.pointerId);
-    } catch (_) { }
-
+  const handleMouseUp = () => {
     setDragging(null);
   };
 
-
-
-
   const handleScaleChange = (container: ContainerType, scale: number) => {
-    const clamped = Math.max(20, Math.min(300, scale));
     setCropTransforms(prev => ({
       ...prev,
       [container]: {
         ...prev[container],
-        scale: clamped,
+        scale: Math.max(20, Math.min(300, scale)),
       }
     }));
   };
@@ -152,6 +160,44 @@ export default function EditorPage() {
         [edge === 'left' ? 'cropLeft' : edge === 'right' ? 'cropRight' : edge === 'top' ? 'cropTop' : 'cropBottom']: Math.max(0, Math.min(200, cropValue))
       }
     }));
+  };
+
+  const handleEdgeCrop = (container: ContainerType, edge: 'left' | 'right' | 'top' | 'bottom', delta: number) => {
+    setCropTransforms(prev => {
+      const currentCrop = prev[container][edge === 'left' ? 'cropLeft' : edge === 'right' ? 'cropRight' : edge === 'top' ? 'cropTop' : 'cropBottom'];
+      // Intuitive: dragging outward (positive delta) = decrease crop (show more)
+      // Dragging inward (negative delta) = increase crop (show less)
+      const cropChange = -delta * 0.5;
+      const newCrop = Math.max(0, Math.min(200, currentCrop + cropChange));
+
+      return {
+        ...prev,
+        [container]: {
+          ...prev[container],
+          [edge === 'left' ? 'cropLeft' : edge === 'right' ? 'cropRight' : edge === 'top' ? 'cropTop' : 'cropBottom']: Math.round(newCrop)
+        }
+      };
+    });
+  };
+
+  const handleRotationChange = (container: ContainerType, rotation: number) => {
+    setCropTransforms(prev => ({
+      ...prev,
+      [container]: {
+        ...prev[container],
+        rotation: rotation,
+      }
+    }));
+  };
+
+  // Independent image scale handler
+  const handleImageScaleChange = (scale: number) => {
+    setImageScale(Math.max(20, Math.min(300, scale)));
+  };
+
+  // Independent image rotation handler
+  const handleImageRotationChange = (rotation: number) => {
+    setImageRotation(Math.max(-180, Math.min(180, rotation)));
   };
 
   const renderContainer = (
@@ -210,32 +256,21 @@ export default function EditorPage() {
             <p className="text-xs text-gray-500 mt-2">Supports: PNG, JPG, SVG</p>
           </div>
 
-          {/* Section Status */}
-          <div className="mb-6">
-            <label className="block text-sm font-semibold text-gray-700 mb-3">Section Status</label>
-            <div className="space-y-2">
-              {(['front', 'back', 'leftSleeve', 'rightSleeve'] as const).map((section) => (
-                <div key={section} className="flex items-center justify-between p-2 border border-gray-200 rounded">
-                  <span className="text-sm capitalize">{section.replace(/([A-Z])/g, ' $1').trim()}</span>
-                  <div className="flex items-center gap-2">
-                    {sectionImages[section] ? (
-                      <>
-                        <img src={sectionImages[section]} alt={`${section} design`} className="w-8 h-8 object-cover rounded" />
-                        <button
-                          onClick={() => setSectionImages(prev => ({ ...prev, [section]: null }))}
-                          className="text-xs text-red-600 hover:text-red-700"
-                        >
-                          Remove
-                        </button>
-                      </>
-                    ) : (
-                      <span className="text-xs text-gray-400">No image</span>
-                    )}
-                  </div>
-                </div>
-              ))}
+          {/* Current Image Preview */}
+          {image && (
+            <div className="mb-6">
+              <label className="block text-sm font-semibold text-gray-700 mb-3">Current Design</label>
+              <div className="border border-gray-200 rounded-lg p-4 bg-gray-50">
+                <img src={image} alt="Current design" className="w-full h-32 object-contain" />
+                <button
+                  onClick={() => setImage(null)}
+                  className="w-full mt-3 py-2 text-sm text-red-600 hover:text-red-700 font-medium"
+                >
+                  Remove Design
+                </button>
+              </div>
             </div>
-          </div>
+          )}
 
           {/* Color Picker */}
           <div className="mb-6">
@@ -285,187 +320,446 @@ export default function EditorPage() {
             <p className="text-gray-600">Position your design over all printing surfaces</p>
           </div>
 
-          {/* Original T-Shirt Sections Layout */}
-          <div className="max-w-4xl mx-auto">
-            <div className="grid grid-cols-2 gap-8">
-              {/* Left and Right Sleeves */}
-              <div className="space-y-4">
-                <h3 className="text-lg font-semibold text-gray-800 text-center">Sleeves</h3>
-                <div className="grid grid-cols-2 gap-4">
-                  {(['leftSleeve', 'rightSleeve'] as const).map((section) => (
-                    <div
-                      key={section}
-                      className={`relative bg-white rounded-lg shadow-md border-2 border-dashed h-32 flex items-center justify-center cursor-pointer transition-all duration-200 ${
-                        hoveredSection === section
-                          ? 'border-pink-400 bg-pink-50 shadow-lg transform scale-105'
-                          : sectionImages[section]
-                            ? 'border-green-300 hover:border-green-400'
-                            : 'border-gray-300 hover:border-gray-400'
-                      }`}
-                      onPointerDown={(e) => handleSectionMouseDown(section, e)}
-                      onPointerMove={handleSectionMouseMove}
-                      onPointerUp={handleSectionMouseUp}
-                      onMouseEnter={(e) => {
-                        setHoveredSection(section);
-                        setTooltipPosition({ x: e.clientX, y: e.clientY });
-                      }}
-                      onMouseMove={(e) => {
-                        if (hoveredSection) {
-                          setTooltipPosition({ x: e.clientX, y: e.clientY });
-                        }
-                      }}
-                      onMouseLeave={() => {
-                        setHoveredSection(null);
-                        setTooltipPosition(null);
-                      }}
-                    >
-                      {sectionImages[section] ? (
-                        <img
-                          src={sectionImages[section]}
-                          alt={`${section} design`}
-                          className="w-full h-full object-contain p-2"
-                          draggable={false}
-                        />
-                      ) : (
-                        <div className="text-center text-gray-400">
-                          <div className="text-2xl mb-2">👕</div>
-                          <div className="text-xs font-medium">{section.replace(/([A-Z])/g, ' $1').trim()}</div>
-                        </div>
-                      )}
-                    </div>
-                  ))}
+          {/* Design Overlay + Container Grid */}
+          <div className="relative max-w-4xl mx-auto">
+            {/* Large invisible boundary rectangle */}
+            <div className="relative w-full h-[600px] border-2 border-transparent bg-gray-50/30 rounded-lg">
+              {/* Top row: Left and Right Sleeves (smaller) */}
+              <div className="flex justify-center gap-8 mb-8 pt-6">
+                <div className="w-40 h-28 bg-white rounded-lg shadow-md border border-gray-200 flex items-center justify-center">
+                  <span className="text-xs font-semibold text-gray-500">LEFT SLEEVE</span>
+                </div>
+                <div className="w-40 h-28 bg-white rounded-lg shadow-md border border-gray-200 flex items-center justify-center">
+                  <span className="text-xs font-semibold text-gray-500">RIGHT SLEEVE</span>
                 </div>
               </div>
 
-              {/* Front and Back */}
-              <div className="space-y-4">
-                <h3 className="text-lg font-semibold text-gray-800 text-center">Body</h3>
-                <div className="grid grid-cols-1 gap-4">
-                  {(['front', 'back'] as const).map((section) => (
-                    <div
-                      key={section}
-                      className={`relative bg-white rounded-lg shadow-md border-2 border-dashed h-40 flex items-center justify-center cursor-pointer transition-all duration-200 ${
-                        hoveredSection === section
-                          ? 'border-pink-400 bg-pink-50 shadow-lg transform scale-105'
-                          : sectionImages[section]
-                            ? 'border-green-300 hover:border-green-400'
-                            : 'border-gray-300 hover:border-gray-400'
-                      }`}
-                      onPointerDown={(e) => handleSectionMouseDown(section, e)}
-                      onPointerMove={handleSectionMouseMove}
-                      onPointerUp={handleSectionMouseUp}
-                      onMouseEnter={() => setHoveredSection(section)}
-                      onMouseLeave={() => setHoveredSection(null)}
-                    >
-                      {sectionImages[section] ? (
-                        <img
-                          src={sectionImages[section]}
-                          alt={`${section} design`}
-                          className="w-full h-full object-contain p-3"
-                          draggable={false}
-                        />
-                      ) : (
-                        <div className="text-center text-gray-400">
-                          <div className="text-3xl mb-2">👕</div>
-                          <div className="text-sm font-medium">{section.replace(/([A-Z])/g, ' $1').trim()}</div>
-                        </div>
-                      )}
-                    </div>
-                  ))}
+              {/* Bottom row: Front and Back (larger) */}
+              <div className="flex justify-center gap-12 px-8">
+                <div className="w-56 h-36 bg-white rounded-lg shadow-md border border-gray-200 flex items-center justify-center">
+                  <span className="text-sm font-semibold text-gray-500">FRONT</span>
+                </div>
+                <div className="w-56 h-36 bg-white rounded-lg shadow-md border border-gray-200 flex items-center justify-center">
+                  <span className="text-sm font-semibold text-gray-500">BACK</span>
                 </div>
               </div>
-            </div>
 
-            {/* Section Controls */}
-            <div className="mt-8 grid grid-cols-2 gap-8">
-              {(['front', 'back', 'leftSleeve', 'rightSleeve'] as const).map((section) => (
-                sectionImages[section] && (
-                  <div key={section} className="bg-white rounded-lg shadow-md border border-gray-200 p-4">
-                    <h4 className="font-semibold text-gray-800 mb-3 capitalize">
-                      {section.replace(/([A-Z])/g, ' $1').trim()} Controls
-                    </h4>
+              {/* Independent Draggable Image - Positioned at Bottom */}
+              {image && (
+                <div
+                  className="absolute z-10"
+                  style={{
+                    transform: `translate3d(${imagePosition.x}px, ${imagePosition.y}px, 0)`,
+                    width: 'fit-content',
+                    height: 'fit-content',
+                    transition: dragging?.isDragging ? 'none' : 'transform 0.1s ease-out',
+                    willChange: 'transform',
+                    backfaceVisibility: 'hidden',
+                    WebkitBackfaceVisibility: 'hidden',
+                    transformStyle: 'preserve-3d',
+                    WebkitTransformStyle: 'preserve-3d',
+                  }}
+                >
+                  {/* Image with Independent Transform Controls */}
+                  <div className="relative group">
+                    {/* Design Image - Independent Size and Position */}
+                    <img
+                      src={image}
+                      alt="Design"
+                      className="select-none block cursor-move"
+                      style={{
+                        transform: `scale(${imageScale / 100}) rotate(${imageRotation}deg)`,
+                        maxWidth: '300px',
+                        maxHeight: '300px',
+                        willChange: 'transform',
+                        backfaceVisibility: 'hidden',
+                        WebkitBackfaceVisibility: 'hidden',
+                        userSelect: 'none',
+                      }}
+                      draggable={false}
+                      onMouseDown={handleImageMouseDown}
+                    />
 
-                    {/* Scale Control */}
-                    <div className="mb-3">
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Scale: {cropTransforms[section].scale}%
-                      </label>
-                      <input
-                        type="range"
-                        min="20"
-                        max="300"
-                        value={cropTransforms[section].scale}
-                        onChange={(e) => handleScaleChange(section, parseInt(e.target.value))}
-                        className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"
-                      />
-                    </div>
+                    {/* Invisible drag area for better UX */}
+                    <div
+                      className="absolute inset-0 cursor-move"
+                      onMouseDown={handleImageMouseDown}
+                      onMouseMove={handleImageMouseMove}
+                      onMouseUp={handleImageMouseUp}
+                      onMouseLeave={handleImageMouseUp}
+                    ></div>
 
-                    {/* Position Controls */}
-                    <div className="grid grid-cols-2 gap-2 mb-3">
-                      <div>
-                        <label className="block text-xs font-medium text-gray-700 mb-1">
-                          X: {cropTransforms[section].x}
-                        </label>
-                        <input
-                          type="range"
-                          min="-200"
-                          max="200"
-                          value={cropTransforms[section].x}
-                          onChange={(e) => setCropTransforms(prev => ({
-                            ...prev,
-                            [section]: { ...prev[section], x: parseInt(e.target.value) }
-                          }))}
-                          className="w-full h-1.5 bg-gray-200 rounded-lg appearance-none cursor-pointer"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-xs font-medium text-gray-700 mb-1">
-                          Y: {cropTransforms[section].y}
-                        </label>
-                        <input
-                          type="range"
-                          min="-200"
-                          max="200"
-                          value={cropTransforms[section].y}
-                          onChange={(e) => setCropTransforms(prev => ({
-                            ...prev,
-                            [section]: { ...prev[section], y: parseInt(e.target.value) }
-                          }))}
-                          className="w-full h-1.5 bg-gray-200 rounded-lg appearance-none cursor-pointer"
-                        />
-                      </div>
-                    </div>
+                    {/* Corner Resize Handles - Responsive to Image Scale */}
+                    <div
+                      className="absolute w-2 h-2 bg-red-500 border border-white transform rotate-45 cursor-nw-resize hover:scale-150 transition-transform"
+                      style={{
+                        top: `${-cropTransforms.front.cropTop - 2}px`,
+                        left: `${-cropTransforms.front.cropLeft - 2}px`,
+                        transform: `rotate(45deg) scale(${cropTransforms.front.scale / 100})`,
+                        transformOrigin: 'center center',
+                      }}
+                      onMouseDown={(e) => {
+                        e.stopPropagation();
+                        const startScale = cropTransforms.front.scale;
+                        const startMouseX = e.clientX;
+                        const startMouseY = e.clientY;
 
-                    {/* Rotation Control */}
-                    <div className="mb-3">
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Rotation: {cropTransforms[section].rotation}°
-                      </label>
-                      <input
-                        type="range"
-                        min="-180"
-                        max="180"
-                        value={cropTransforms[section].rotation}
-                        onChange={(e) => setCropTransforms(prev => ({
-                          ...prev,
-                          [section]: { ...prev[section], rotation: parseInt(e.target.value) }
-                        }))}
-                        className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"
-                      />
-                    </div>
+                        const handleCornerResize = (moveEvent: MouseEvent) => {
+                          const deltaX = startMouseX - moveEvent.clientX;
+                          const deltaY = startMouseY - moveEvent.clientY;
+                          const distance = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
+                          const angle = Math.atan2(deltaY, deltaX);
 
-                    {/* Reset Button */}
-                    <button
-                      onClick={() => handleReset(section)}
-                      className="w-full py-2 px-3 bg-gray-500 hover:bg-gray-600 text-white rounded text-sm font-medium transition-colors"
+                          let scaleChange = 0;
+                          if (angle >= -Math.PI / 4 && angle <= Math.PI / 4) {
+                            scaleChange = distance * 0.3;
+                          } else {
+                            scaleChange = -distance * 0.3;
+                          }
+
+                          const newScale = Math.max(20, Math.min(300, startScale + scaleChange));
+                          handleScaleChange('front', Math.round(newScale));
+                        };
+
+                        const handleEnd = () => {
+                          document.removeEventListener('mousemove', handleCornerResize);
+                          document.removeEventListener('mouseup', handleEnd);
+                        };
+
+                        document.addEventListener('mousemove', handleCornerResize);
+                        document.addEventListener('mouseup', handleEnd);
+                      }}
+                    ></div>
+                    <div
+                      className="absolute w-2 h-2 bg-red-500 border border-white transform rotate-45 cursor-ne-resize hover:scale-150 transition-transform"
+                      style={{
+                        top: `${-cropTransforms.front.cropTop - 2}px`,
+                        right: `${-cropTransforms.front.cropRight - 2}px`,
+                        transform: `rotate(45deg) scale(${cropTransforms.front.scale / 100})`,
+                        transformOrigin: 'center center',
+                      }}
+                      onMouseDown={(e) => {
+                        e.stopPropagation();
+                        const startScale = cropTransforms.front.scale;
+                        const startMouseX = e.clientX;
+                        const startMouseY = e.clientY;
+
+                        const handleCornerResize = (moveEvent: MouseEvent) => {
+                          const deltaX = moveEvent.clientX - startMouseX;
+                          const deltaY = startMouseY - moveEvent.clientY;
+                          const distance = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
+                          const angle = Math.atan2(deltaY, deltaX);
+
+                          let scaleChange = 0;
+                          if (angle >= -Math.PI / 4 && angle <= Math.PI / 4) {
+                            scaleChange = distance * 0.3;
+                          } else {
+                            scaleChange = -distance * 0.3;
+                          }
+
+                          const newScale = Math.max(20, Math.min(300, startScale + scaleChange));
+                          handleScaleChange('front', Math.round(newScale));
+                        };
+
+                        const handleEnd = () => {
+                          document.removeEventListener('mousemove', handleCornerResize);
+                          document.removeEventListener('mouseup', handleEnd);
+                        };
+
+                        document.addEventListener('mousemove', handleCornerResize);
+                        document.addEventListener('mouseup', handleEnd);
+                      }}
+                    ></div>
+                    <div
+                      className="absolute w-2 h-2 bg-red-500 border border-white transform rotate-45 cursor-sw-resize hover:scale-150 transition-transform"
+                      style={{
+                        bottom: `${-cropTransforms.front.cropBottom - 2}px`,
+                        left: `${-cropTransforms.front.cropLeft - 2}px`,
+                        transform: `rotate(45deg) scale(${cropTransforms.front.scale / 100})`,
+                        transformOrigin: 'center center',
+                      }}
+                      onMouseDown={(e) => {
+                        e.stopPropagation();
+                        const startScale = cropTransforms.front.scale;
+                        const startMouseX = e.clientX;
+                        const startMouseY = e.clientY;
+
+                        const handleCornerResize = (moveEvent: MouseEvent) => {
+                          const deltaX = startMouseX - moveEvent.clientX;
+                          const deltaY = moveEvent.clientY - startMouseY;
+                          const distance = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
+                          const angle = Math.atan2(deltaY, deltaX);
+
+                          let scaleChange = 0;
+                          if (angle >= -Math.PI / 4 && angle <= Math.PI / 4) {
+                            scaleChange = distance * 0.3;
+                          } else {
+                            scaleChange = -distance * 0.3;
+                          }
+
+                          const newScale = Math.max(20, Math.min(300, startScale + scaleChange));
+                          handleScaleChange('front', Math.round(newScale));
+                        };
+
+                        const handleEnd = () => {
+                          document.removeEventListener('mousemove', handleCornerResize);
+                          document.removeEventListener('mouseup', handleEnd);
+                        };
+
+                        document.addEventListener('mousemove', handleCornerResize);
+                        document.addEventListener('mouseup', handleEnd);
+                      }}
+                    ></div>
+                    <div
+                      className="absolute w-2 h-2 bg-red-500 border border-white transform rotate-45 cursor-se-resize hover:scale-150 transition-transform"
+                      style={{
+                        bottom: `${-cropTransforms.front.cropBottom - 2}px`,
+                        right: `${-cropTransforms.front.cropRight - 2}px`,
+                        transform: `rotate(45deg) scale(${cropTransforms.front.scale / 100})`,
+                        transformOrigin: 'center center',
+                      }}
+                      onMouseDown={(e) => {
+                        e.stopPropagation();
+                        const startScale = cropTransforms.front.scale;
+                        const startMouseX = e.clientX;
+                        const startMouseY = e.clientY;
+
+                        const handleCornerResize = (moveEvent: MouseEvent) => {
+                          const deltaX = moveEvent.clientX - startMouseX;
+                          const deltaY = moveEvent.clientY - startMouseY;
+                          const distance = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
+                          const angle = Math.atan2(deltaY, deltaX);
+
+                          let scaleChange = 0;
+                          if (angle >= -Math.PI / 4 && angle <= Math.PI / 4) {
+                            scaleChange = distance * 0.3;
+                          } else {
+                            scaleChange = -distance * 0.3;
+                          }
+
+                          const newScale = Math.max(20, Math.min(300, startScale + scaleChange));
+                          handleScaleChange('front', Math.round(newScale));
+                        };
+
+                        const handleEnd = () => {
+                          document.removeEventListener('mousemove', handleCornerResize);
+                          document.removeEventListener('mouseup', handleEnd);
+                        };
+
+                        document.addEventListener('mousemove', handleCornerResize);
+                        document.addEventListener('mouseup', handleEnd);
+                      }}
+                    ></div>
+
+                    {/* Edge Crop Handles - Responsive to Image Scale and Crop Values */}
+                    <div
+                      className="absolute w-4 h-1 bg-red-500 border border-white cursor-n-resize hover:scale-150 transition-transform"
+                      style={{
+                        top: `${-cropTransforms.front.cropTop - 2}px`,
+                        left: '50%',
+                        transform: `translateX(-50%) scale(${cropTransforms.front.scale / 100})`,
+                        transformOrigin: 'center center',
+                      }}
+                      onMouseDown={(e) => {
+                        e.stopPropagation();
+                        const startMouseY = e.clientY;
+
+                        const handleTopCrop = (moveEvent: MouseEvent) => {
+                          const deltaY = startMouseY - moveEvent.clientY;
+                          handleEdgeCrop('front', 'top', deltaY);
+                        };
+
+                        const handleEnd = () => {
+                          document.removeEventListener('mousemove', handleTopCrop);
+                          document.removeEventListener('mouseup', handleEnd);
+                        };
+
+                        document.addEventListener('mousemove', handleTopCrop);
+                        document.addEventListener('mouseup', handleEnd);
+                      }}
+                    ></div>
+                    <div
+                      className="absolute w-4 h-1 bg-red-500 border border-white cursor-s-resize hover:scale-150 transition-transform"
+                      style={{
+                        bottom: `${-cropTransforms.front.cropBottom - 2}px`,
+                        left: '50%',
+                        transform: `translateX(-50%) scale(${cropTransforms.front.scale / 100})`,
+                        transformOrigin: 'center center',
+                      }}
+                      onMouseDown={(e) => {
+                        e.stopPropagation();
+                        const startCrop = cropTransforms.front.cropBottom;
+                        const startMouseY = e.clientY;
+
+                        const handleBottomCrop = (moveEvent: MouseEvent) => {
+                          const deltaY = moveEvent.clientY - startMouseY;
+                          const cropChange = -deltaY * 0.5;
+                          const newCrop = Math.max(0, Math.min(200, startCrop + cropChange));
+                          handleCropChange('front', 'bottom', Math.round(newCrop));
+                        };
+
+                        const handleEnd = () => {
+                          document.removeEventListener('mousemove', handleBottomCrop);
+                          document.removeEventListener('mouseup', handleEnd);
+                        };
+
+                        document.addEventListener('mousemove', handleBottomCrop);
+                        document.addEventListener('mouseup', handleEnd);
+                      }}
+                    ></div>
+                    <div
+                      className="absolute w-1 h-4 bg-red-500 border border-white cursor-w-resize hover:scale-150 transition-transform"
+                      style={{
+                        top: '50%',
+                        left: `${-cropTransforms.front.cropLeft - 2}px`,
+                        transform: `translateY(-50%) scale(${cropTransforms.front.scale / 100})`,
+                        transformOrigin: 'center center',
+                      }}
+                      onMouseDown={(e) => {
+                        e.stopPropagation();
+                        const startCrop = cropTransforms.front.cropLeft;
+                        const startMouseX = e.clientX;
+
+                        const handleLeftCrop = (moveEvent: MouseEvent) => {
+                          const deltaX = startMouseX - moveEvent.clientX;
+                          const cropChange = -deltaX * 0.5;
+                          const newCrop = Math.max(0, Math.min(200, startCrop + cropChange));
+                          handleCropChange('front', 'left', Math.round(newCrop));
+                        };
+
+                        const handleEnd = () => {
+                          document.removeEventListener('mousemove', handleLeftCrop);
+                          document.removeEventListener('mouseup', handleEnd);
+                        };
+
+                        document.addEventListener('mousemove', handleLeftCrop);
+                        document.addEventListener('mouseup', handleEnd);
+                      }}
+                    ></div>
+                    <div
+                      className="absolute w-1 h-4 bg-red-500 border border-white cursor-e-resize hover:scale-150 transition-transform"
+                      style={{
+                        top: '50%',
+                        right: `${-cropTransforms.front.cropRight - 2}px`,
+                        transform: `translateY(-50%) scale(${cropTransforms.front.scale / 100})`,
+                        transformOrigin: 'center center',
+                      }}
+                      onMouseDown={(e) => {
+                        e.stopPropagation();
+                        const startCrop = cropTransforms.front.cropRight;
+                        const startMouseX = e.clientX;
+
+                        const handleRightCrop = (moveEvent: MouseEvent) => {
+                          const deltaX = moveEvent.clientX - startMouseX;
+                          const cropChange = -deltaX * 0.5;
+                          const newCrop = Math.max(0, Math.min(200, startCrop + cropChange));
+                          handleCropChange('front', 'right', Math.round(newCrop));
+                        };
+
+                        const handleEnd = () => {
+                          document.removeEventListener('mousemove', handleRightCrop);
+                          document.removeEventListener('mouseup', handleEnd);
+                        };
+
+                        document.addEventListener('mousemove', handleRightCrop);
+                        document.addEventListener('mouseup', handleEnd);
+                      }}
+                    ></div>
+
+                    {/* Rotation Control - Responsive to Image Scale */}
+                    <div
+                      className="absolute"
+                      style={{
+                        top: `${-cropTransforms.front.cropTop - 28}px`,
+                        left: '50%',
+                        transform: `translateX(-50%) scale(${cropTransforms.front.scale / 100})`,
+                        transformOrigin: 'center center',
+                      }}
+                      onMouseDown={(e) => {
+                        e.stopPropagation();
+                        const startRotation = cropTransforms.front.rotation;
+                        const startMouseX = e.clientX;
+
+                        const handleRotationMove = (moveEvent: MouseEvent) => {
+                          const deltaX = moveEvent.clientX - startMouseX;
+                          const newRotation = startRotation + (deltaX * 0.5);
+                          handleRotationChange('front', Math.max(-180, Math.min(180, newRotation)));
+                        };
+
+                        const handleRotationEnd = () => {
+                          document.removeEventListener('mousemove', handleRotationMove);
+                          document.removeEventListener('mouseup', handleRotationEnd);
+                        };
+
+                        document.addEventListener('mousemove', handleRotationMove);
+                        document.addEventListener('mouseup', handleRotationEnd);
+                      }}
                     >
-                      Reset {section.replace(/([A-Z])/g, ' $1').trim()}
-                    </button>
+                      <div className="w-4 h-4 bg-red-500 rounded-full border border-white flex items-center justify-center cursor-pointer hover:scale-125 transition-transform">
+                        <svg className="w-2 h-2 text-white" fill="currentColor" viewBox="0 0 24 24">
+                          <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
+                        </svg>
+                      </div>
+                    </div>
                   </div>
-                )
-              ))}
+                </div>
+              )}
+
+              {/* Reset Button for Independent Image */}
+              {image && (
+                <button
+                  onClick={() => {
+                    setImagePosition({ x: 0, y: 0 });
+                    setImageScale(60);
+                    setImageRotation(0);
+                  }}
+                  className="absolute top-2 right-2 z-20 text-xs text-pink-600 hover:text-pink-700 font-medium bg-white/90 px-2 py-1 rounded shadow"
+                >
+                  Reset
+                </button>
+              )}
+
+              {/* Independent Image Scale Control */}
+              {image && (
+                <div className="absolute top-2 left-2 z-20 bg-white/90 backdrop-blur-sm rounded-lg px-3 py-2 shadow-lg">
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs text-gray-600 font-medium">Scale:</span>
+                    <span className="text-xs font-bold text-pink-600">{imageScale}%</span>
+                    <input
+                      type="range"
+                      min="20"
+                      max="300"
+                      value={imageScale}
+                      onChange={(e) => handleImageScaleChange(parseInt(e.target.value))}
+                      className="w-20 h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"
+                      style={{
+                        background: `linear-gradient(to right, #ec4899 0%, #ec4899 ${(imageScale - 20) / 2.8}%, #e5e7eb ${(imageScale - 20) / 2.8}%, #e5e7eb 100%)`
+                      }}
+                    />
+                  </div>
+                </div>
+              )}
             </div>
           </div>
+
+          {/* Upload prompt when no image */}
+          {!image && (
+            <div className="text-center mt-12 p-12 bg-white rounded-lg shadow-md border-2 border-dashed border-gray-300">
+              <div className="w-24 h-24 bg-gradient-to-br from-pink-100 to-purple-100 rounded-full mx-auto mb-6 flex items-center justify-center">
+                <svg className="w-12 h-12 text-pink-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                </svg>
+              </div>
+              <h3 className="text-xl font-semibold text-gray-800 mb-2">Ready to Start?</h3>
+              <p className="text-gray-600 mb-6">Upload your design to place it across all printing surfaces!</p>
+              <button
+                onClick={handleUpload}
+                className="px-8 py-3 bg-gradient-to-r from-pink-500 to-purple-600 hover:from-pink-600 hover:to-purple-700 text-white rounded-lg font-medium shadow-lg transition-all duration-200"
+              >
+                Upload Design Now
+              </button>
+            </div>
+          )}
         </div>
       </div>
 
@@ -487,12 +781,12 @@ export default function EditorPage() {
               buttons: tshirtColor,
               ribbedHem: tshirtColor,
             }}
-            textures={{
-              front: sectionImages.front || undefined,
-              back: sectionImages.back || undefined,
-              leftSleeve: sectionImages.leftSleeve || undefined,
-              rightSleeve: sectionImages.rightSleeve || undefined,
-            }}
+            textures={image ? {
+              front: image,
+              back: image,
+              leftSleeve: image,
+              rightSleeve: image,
+            } : {}}
             textureTransforms={{
               front: {
                 position: { x: cropTransforms.front.x / 200, y: -cropTransforms.front.y / 200 },
@@ -518,29 +812,6 @@ export default function EditorPage() {
           />
         </div>
       </div>
-
-      {/* Hover Tooltip */}
-      {hoveredSection && tooltipPosition && (
-        <div
-          className="fixed z-50 bg-gray-900 text-white text-xs px-3 py-2 rounded-lg shadow-lg pointer-events-none transform -translate-x-1/2 -translate-y-full"
-          style={{
-            left: tooltipPosition.x,
-            top: tooltipPosition.y - 10,
-          }}
-        >
-          <div className="font-semibold capitalize mb-1">
-            {hoveredSection.replace(/([A-Z])/g, ' $1').trim()}
-          </div>
-          <div className="text-gray-300">
-            {sectionImages[hoveredSection]
-              ? `Design applied • Scale: ${cropTransforms[hoveredSection].scale}%`
-              : 'Click to add design'
-            }
-          </div>
-          {/* Tooltip arrow */}
-          <div className="absolute top-full left-1/2 transform -translate-x-1/2 w-0 h-0 border-l-4 border-r-4 border-t-4 border-l-transparent border-r-transparent border-t-gray-900"></div>
-        </div>
-      )}
     </div>
   );
 }
