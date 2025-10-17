@@ -608,7 +608,7 @@ export default function EditorPage() {
 
   // Unified image dragging handlers
   const handleImageMouseDown = (event: React.MouseEvent) => {
-    if (!image) return;
+    if (!currentImage) return;
     event.preventDefault();
     event.stopPropagation();
 
@@ -623,7 +623,7 @@ export default function EditorPage() {
     setPreviewState({
       showPreview: true,
       previewContainer: null, // Will be set when hovering over containers
-      previewImage: image,
+      previewImage: currentImage,
       previewTransforms: { ...imageTransforms },
     });
   };
@@ -658,7 +658,7 @@ export default function EditorPage() {
 
   // Unified container interaction handlers
   const handleMouseDown = (container: ContainerType, event: React.MouseEvent) => {
-    if (!image) return;
+    if (!currentImage) return;
     event.preventDefault();
 
     const rect = event.currentTarget.getBoundingClientRect();
@@ -709,7 +709,7 @@ export default function EditorPage() {
     }));
 
     // Update real-time preview
-    if (image) {
+    if (currentImage) {
       setPreviewState(prev => ({
         ...prev,
         previewTransforms: { ...prev.previewTransforms, scale: newScale },
@@ -746,7 +746,7 @@ export default function EditorPage() {
     }));
 
     // Update real-time preview
-    if (image) {
+    if (currentImage) {
       setPreviewState(prev => ({
         ...prev,
         previewTransforms: { ...prev.previewTransforms, rotation: rotation },
@@ -763,7 +763,7 @@ export default function EditorPage() {
     }));
 
     // Update real-time preview
-    if (image) {
+    if (currentImage) {
       setPreviewState(prev => ({
         ...prev,
         previewTransforms: { ...prev.previewTransforms, scale: newScale },
@@ -779,7 +779,7 @@ export default function EditorPage() {
     }));
 
     // Update real-time preview
-    if (image) {
+    if (currentImage) {
       setPreviewState(prev => ({
         ...prev,
         previewTransforms: { ...prev.previewTransforms, rotation: rotation },
@@ -789,7 +789,7 @@ export default function EditorPage() {
 
   // Unified image manipulation handlers
   const handleCropToRatio = (ratio: 'square' | '4:3' | '3:4' | '16:9' | '9:16') => {
-    if (!image) return;
+    if (!currentImage) return;
 
     const ratios = {
       'square': { width: 1, height: 1 },
@@ -814,7 +814,7 @@ export default function EditorPage() {
   };
 
   const handleFitToArea = () => {
-    if (!image) return;
+    if (!currentImage) return;
 
     setImageTransforms(prev => ({
       ...prev,
@@ -874,13 +874,13 @@ export default function EditorPage() {
 
   // Real-time preview update handlers
   const updatePreviewTransforms = useCallback((newTransforms: any) => {
-    if (image) {
+    if (currentImage) {
       setPreviewState(prev => ({
         ...prev,
         previewTransforms: newTransforms,
       }));
     }
-  }, [image]);
+  }, [currentImage]);
 
   // Enhanced transform handlers that update both state and preview
   const handleScaleChangeWithPreview = (scale: number) => {
@@ -956,13 +956,13 @@ export default function EditorPage() {
                 [container]: { ...prev[container], isDragOver: false }
               }));
 
-              if (image) {
+              if (currentImage) {
                 // Place image in this specific container
                 setContainerImages(prev => ({
                   ...prev,
                   [container]: {
                     ...prev[container],
-                    image: image,
+                    image: currentImage,
                     transforms: {
                       x: 0,
                       y: 0,
@@ -977,7 +977,7 @@ export default function EditorPage() {
                 }));
 
                 // Clear the global image after placing
-                setImage(null);
+                setCurrentImage(null);
               }
             }}
           >
@@ -1054,13 +1054,13 @@ export default function EditorPage() {
           </div>
 
           {/* Current Image Preview */}
-          {image && (
+          {currentImage && (
             <div className="mb-6">
               <label className="block text-sm font-semibold text-gray-700 mb-3">Current Design</label>
               <div className="border border-gray-200 rounded-lg p-4 bg-gray-50">
-                <img src={image} alt="Current design" className="w-full h-32 object-contain" />
+                <img src={currentImage} alt="Current design" className="w-full h-32 object-contain" />
                 <button
-                  onClick={() => setImage(null)}
+                  onClick={() => setCurrentImage(null)}
                   className="w-full mt-3 py-2 text-sm text-red-600 hover:text-red-700 font-medium"
                 >
                   Remove Design
@@ -1092,7 +1092,7 @@ export default function EditorPage() {
           </div>
 
           {/* Image Manipulation Controls */}
-          {image && (
+          {currentImage && (
             <div className="mb-6">
               <label className="block text-sm font-semibold text-gray-700 mb-3">Crop & Resize</label>
 
@@ -1267,8 +1267,8 @@ export default function EditorPage() {
                   className="w-40 h-28"
                   containerImages={containerImages}
                   setContainerImages={setContainerImages}
-                  currentImage={image}
-                  setCurrentImage={setImage}
+                  currentImage={currentImage}
+                  setCurrentImage={setCurrentImage}
                   imageTransforms={imageTransforms}
                   setPreviewState={setPreviewState}
                 />
@@ -1280,8 +1280,8 @@ export default function EditorPage() {
                   className="w-40 h-28"
                   containerImages={containerImages}
                   setContainerImages={setContainerImages}
-                  currentImage={image}
-                  setCurrentImage={setImage}
+                  currentImage={currentImage}
+                  setCurrentImage={setCurrentImage}
                   imageTransforms={imageTransforms}
                   setPreviewState={setPreviewState}
                 />
@@ -1297,8 +1297,8 @@ export default function EditorPage() {
                   className="w-56 h-36"
                   containerImages={containerImages}
                   setContainerImages={setContainerImages}
-                  currentImage={image}
-                  setCurrentImage={setImage}
+                  currentImage={currentImage}
+                  setCurrentImage={setCurrentImage}
                   imageTransforms={imageTransforms}
                   setPreviewState={setPreviewState}
                 />
@@ -1310,17 +1310,17 @@ export default function EditorPage() {
                   className="w-56 h-36"
                   containerImages={containerImages}
                   setContainerImages={setContainerImages}
-                  currentImage={image}
-                  setCurrentImage={setImage}
+                  currentImage={currentImage}
+                  setCurrentImage={setCurrentImage}
                   imageTransforms={imageTransforms}
                   setPreviewState={setPreviewState}
                 />
               </div>
 
               {/* Unified Image Control Component */}
-              {image && (
+              {currentImage && (
                 <UnifiedImageControl
-                  image={image}
+                  image={currentImage}
                   transforms={imageTransforms}
                   onTransform={setImageTransforms}
                   onDragStart={handleImageMouseDown}
@@ -1424,7 +1424,7 @@ export default function EditorPage() {
 
                   <button
                     onClick={() => {
-                      setImage(null);
+                      setCurrentImage(null);
                       setContextMenu(null);
                     }}
                     className="w-full px-3 py-2 text-left text-sm text-red-600 hover:bg-red-50 flex items-center gap-2"
@@ -1440,7 +1440,7 @@ export default function EditorPage() {
           </div>
 
           {/* Upload prompt when no image */}
-          {!image && (
+          {!currentImage && (
             <div className="text-center mt-12 p-12 bg-white rounded-lg shadow-md border-2 border-dashed border-gray-300">
               <div className="w-24 h-24 bg-gradient-to-br from-pink-100 to-purple-100 rounded-full mx-auto mb-6 flex items-center justify-center">
                 <svg className="w-12 h-12 text-pink-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
