@@ -91,6 +91,210 @@ function ContainerImageControl({
   );
 }
 
+// Interactive Container Component Props
+interface InteractiveContainerProps {
+  type: ContainerType;
+  title: string;
+  width: number;
+  height: number;
+  className?: string;
+  containerImages: Record<ContainerType, {
+    image: string | null;
+    transforms: {
+      x: number;
+      y: number;
+      scale: number;
+      rotation: number;
+      cropLeft: number;
+      cropRight: number;
+      cropTop: number;
+      cropBottom: number;
+    };
+    isDragOver: boolean;
+  }>;
+  setContainerImages: React.Dispatch<React.SetStateAction<Record<ContainerType, {
+    image: string | null;
+    transforms: {
+      x: number;
+      y: number;
+      scale: number;
+      rotation: number;
+      cropLeft: number;
+      cropRight: number;
+      cropTop: number;
+      cropBottom: number;
+    };
+    isDragOver: boolean;
+  }>>>;
+  currentImage: string | null;
+  setCurrentImage: React.Dispatch<React.SetStateAction<string | null>>;
+  imageTransforms: {
+    x: number;
+    y: number;
+    scale: number;
+    rotation: number;
+    cropLeft: number;
+    cropRight: number;
+    cropTop: number;
+    cropBottom: number;
+  };
+  setPreviewState: React.Dispatch<React.SetStateAction<{
+    showPreview: boolean;
+    previewContainer: ContainerType | null;
+    previewImage: string | null;
+    previewTransforms: {
+      x: number;
+      y: number;
+      scale: number;
+      rotation: number;
+    };
+  }>>;
+}
+
+// Interactive Container Component
+function InteractiveContainer({
+  type,
+  title,
+  width,
+  height,
+  className = "",
+  containerImages,
+  setContainerImages,
+  currentImage,
+  setCurrentImage,
+  imageTransforms,
+  setPreviewState,
+}: InteractiveContainerProps) {
+  const containerData = containerImages[type];
+  const isActive = containerData.image !== null;
+
+  return (
+    <div className={`bg-white rounded-lg shadow-md border-2 border-gray-200 transition-all duration-200 hover:shadow-lg ${className}`}>
+      {/* Header */}
+      <div className="bg-gradient-to-r from-blue-50 to-indigo-50 px-3 py-2 border-b border-gray-200">
+        <div className="flex items-center justify-between">
+          <div className="text-xs font-semibold text-gray-800">{title}</div>
+          {isActive && (
+            <div className="flex items-center gap-1">
+              <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+              <span className="text-xs text-green-600 font-medium">Active</span>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Interactive Drop Zone */}
+      <div className="p-2">
+        <div
+          className={`relative overflow-hidden transition-all duration-200 rounded ${containerData.isDragOver
+            ? 'border-blue-500 bg-blue-50 scale-105'
+            : isActive
+              ? 'border-green-300 bg-green-50'
+              : 'border-gray-300 hover:border-gray-400'
+            }`}
+          style={{
+            width: `${width}px`,
+            height: `${height}px`,
+            border: '2px dashed',
+          }}
+          onDragOver={(e) => {
+            e.preventDefault();
+            setContainerImages(prev => ({
+              ...prev,
+              [type]: { ...prev[type], isDragOver: true }
+            }));
+
+            // Show real-time preview when hovering over container with image
+            if (currentImage) {
+              setPreviewState({
+                showPreview: true,
+                previewContainer: type,
+                previewImage: currentImage,
+                previewTransforms: { ...imageTransforms },
+              });
+            }
+          }}
+          onDragLeave={(e) => {
+            e.preventDefault();
+            setContainerImages(prev => ({
+              ...prev,
+              [type]: { ...prev[type], isDragOver: false }
+            }));
+
+            // Clear preview when leaving container
+            setPreviewState({
+              showPreview: false,
+              previewContainer: null,
+              previewImage: null,
+              previewTransforms: { x: 0, y: 0, scale: 60, rotation: 0 },
+            });
+          }}
+          onDrop={(e) => {
+            e.preventDefault();
+            setContainerImages(prev => ({
+              ...prev,
+              [type]: { ...prev[type], isDragOver: false }
+            }));
+
+            if (currentImage) {
+              // Place image in this specific container
+              setContainerImages(prev => ({
+                ...prev,
+                [type]: {
+                  ...prev[type],
+                  image: currentImage,
+                  transforms: {
+                    x: 0,
+                    y: 0,
+                    scale: type === 'leftSleeve' || type === 'rightSleeve' ? 50 : 60,
+                    rotation: 0,
+                    cropLeft: 0,
+                    cropRight: 0,
+                    cropTop: 0,
+                    cropBottom: 0,
+                  }
+                }
+              }));
+
+              // Clear the global image after placing
+              setCurrentImage(null);
+            }
+          }}
+        >
+          {containerData.image ? (
+            <ContainerImageControl
+              container={type}
+              image={containerData.image}
+              transforms={containerData.transforms}
+              onTransform={(newTransforms) => {
+                setContainerImages(prev => ({
+                  ...prev,
+                  [type]: { ...prev[type], transforms: newTransforms }
+                }));
+              }}
+              onRemove={() => {
+                setContainerImages(prev => ({
+                  ...prev,
+                  [type]: { ...prev[type], image: null }
+                }));
+              }}
+            />
+          ) : (
+            <div className="flex items-center justify-center h-full text-gray-400">
+              <div className="text-center">
+                <svg className="w-6 h-6 mx-auto mb-1 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                </svg>
+                <p className="text-xs">Drop image here</p>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // Unified Image Control Component Props
 interface UnifiedImageControlProps {
   image: string;
@@ -110,6 +314,7 @@ interface UnifiedImageControlProps {
   onDragEnd: () => void;
   onContextMenu: (x: number, y: number) => void;
   isDragging: boolean;
+  setContextMenu: React.Dispatch<React.SetStateAction<{ visible: boolean; x: number; y: number } | null>>;
 }
 
 // Unified Image Control Component - Clean Mockey.ai Style
@@ -121,7 +326,7 @@ function UnifiedImageControl({
   onDragMove,
   onDragEnd,
   isDragging,
-
+  setContextMenu,
 }: UnifiedImageControlProps) {
   return (
     <div
@@ -299,9 +504,12 @@ function UnifiedImageControl({
 }
 
 export default function EditorPage() {
-  const [image, setImage] = useState<string | null>(null);
   const [tshirtColor, setTshirtColor] = useState('#ffffff');
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Multi-image system: each container can have its own image
+  const [uploadedImages, setUploadedImages] = useState<string[]>([]);
+  const [currentImage, setCurrentImage] = useState<string | null>(null);
 
   // Individual container system (mockey.ai style)
   const [containerImages, setContainerImages] = useState<Record<ContainerType, {
@@ -346,6 +554,39 @@ export default function EditorPage() {
   // Context menu state
   const [contextMenu, setContextMenu] = useState<{ visible: boolean; x: number; y: number } | null>(null);
 
+  // Hover state for real-time preview
+  const [hoveredContainer, setHoveredContainer] = useState<ContainerType | null>(null);
+
+  // Real-time preview state for 3D updates during interactions
+  const [previewState, setPreviewState] = useState<{
+    showPreview: boolean;
+    previewContainer: ContainerType | null;
+    previewImage: string | null;
+    previewTransforms: {
+      x: number;
+      y: number;
+      scale: number;
+      rotation: number;
+    };
+  }>({
+    showPreview: false,
+    previewContainer: null,
+    previewImage: null,
+    previewTransforms: { x: 0, y: 0, scale: 60, rotation: 0 },
+  });
+
+  // Unified image transforms state
+  const [imageTransforms, setImageTransforms] = useState({
+    x: 0,
+    y: 0,
+    scale: 60,
+    rotation: 0,
+    cropLeft: 0,
+    cropRight: 0,
+    cropTop: 0,
+    cropBottom: 0,
+  });
+
   // Context menu handler
   const handleContextMenu = (x: number, y: number) => {
     setContextMenu({ visible: true, x, y });
@@ -359,7 +600,9 @@ export default function EditorPage() {
     const file = event.target.files?.[0];
     if (file) {
       const url = URL.createObjectURL(file);
-      setImage(url);
+      setCurrentImage(url);
+      // Also add to uploaded images list
+      setUploadedImages(prev => [...prev, url]);
     }
   };
 
@@ -375,6 +618,14 @@ export default function EditorPage() {
       startY: event.clientY - imageTransforms.y,
       type: 'move',
     });
+
+    // Start real-time preview
+    setPreviewState({
+      showPreview: true,
+      previewContainer: null, // Will be set when hovering over containers
+      previewImage: image,
+      previewTransforms: { ...imageTransforms },
+    });
   };
 
   const handleImageMouseMove = useCallback((event: React.MouseEvent) => {
@@ -385,10 +636,24 @@ export default function EditorPage() {
 
     // Update image position immediately for smooth dragging
     setImageTransforms(prev => ({ ...prev, x: newX, y: newY }));
+
+    // Update real-time preview
+    setPreviewState(prev => ({
+      ...prev,
+      previewTransforms: { ...prev.previewTransforms, x: newX, y: newY },
+    }));
   }, [dragging]);
 
   const handleImageMouseUp = () => {
     setDragging(null);
+
+    // Clear real-time preview
+    setPreviewState({
+      showPreview: false,
+      previewContainer: null,
+      previewImage: null,
+      previewTransforms: { x: 0, y: 0, scale: 60, rotation: 0 },
+    });
   };
 
   // Unified container interaction handlers
@@ -437,10 +702,19 @@ export default function EditorPage() {
 
   // Unified image manipulation handlers
   const handleScaleChange = (scale: number) => {
+    const newScale = Math.max(20, Math.min(300, scale));
     setImageTransforms(prev => ({
       ...prev,
-      scale: Math.max(20, Math.min(300, scale)),
+      scale: newScale,
     }));
+
+    // Update real-time preview
+    if (image) {
+      setPreviewState(prev => ({
+        ...prev,
+        previewTransforms: { ...prev.previewTransforms, scale: newScale },
+      }));
+    }
   };
 
   const handleCropChange = (edge: 'left' | 'right' | 'top' | 'bottom', cropValue: number) => {
@@ -470,14 +744,31 @@ export default function EditorPage() {
       ...prev,
       rotation: rotation,
     }));
+
+    // Update real-time preview
+    if (image) {
+      setPreviewState(prev => ({
+        ...prev,
+        previewTransforms: { ...prev.previewTransforms, rotation: rotation },
+      }));
+    }
   };
 
   // Unified image scale handler
   const handleImageScaleChange = (scale: number) => {
+    const newScale = Math.max(20, Math.min(300, scale));
     setImageTransforms(prev => ({
       ...prev,
-      scale: Math.max(20, Math.min(300, scale)),
+      scale: newScale,
     }));
+
+    // Update real-time preview
+    if (image) {
+      setPreviewState(prev => ({
+        ...prev,
+        previewTransforms: { ...prev.previewTransforms, scale: newScale },
+      }));
+    }
   };
 
   // Unified image rotation handler
@@ -486,6 +777,14 @@ export default function EditorPage() {
       ...prev,
       rotation: Math.max(-180, Math.min(180, rotation)),
     }));
+
+    // Update real-time preview
+    if (image) {
+      setPreviewState(prev => ({
+        ...prev,
+        previewTransforms: { ...prev.previewTransforms, rotation: rotation },
+      }));
+    }
   };
 
   // Unified image manipulation handlers
@@ -571,6 +870,34 @@ export default function EditorPage() {
       cropTop: 0,
       cropBottom: 0,
     });
+  };
+
+  // Real-time preview update handlers
+  const updatePreviewTransforms = useCallback((newTransforms: any) => {
+    if (image) {
+      setPreviewState(prev => ({
+        ...prev,
+        previewTransforms: newTransforms,
+      }));
+    }
+  }, [image]);
+
+  // Enhanced transform handlers that update both state and preview
+  const handleScaleChangeWithPreview = (scale: number) => {
+    const newScale = Math.max(20, Math.min(300, scale));
+    setImageTransforms(prev => ({ ...prev, scale: newScale }));
+    updatePreviewTransforms({ ...imageTransforms, scale: newScale });
+  };
+
+  const handleRotationChangeWithPreview = (rotation: number) => {
+    setImageTransforms(prev => ({ ...prev, rotation: rotation }));
+    updatePreviewTransforms({ ...imageTransforms, rotation: rotation });
+  };
+
+  const handleImageScaleChangeWithPreview = (scale: number) => {
+    const newScale = Math.max(20, Math.min(300, scale));
+    setImageTransforms(prev => ({ ...prev, scale: newScale }));
+    updatePreviewTransforms({ ...imageTransforms, scale: newScale });
   };
 
   // Individual Container Component with Drag/Drop Detection
@@ -930,24 +1257,64 @@ export default function EditorPage() {
           <div className="relative max-w-4xl mx-auto">
             {/* Large invisible boundary rectangle */}
             <div className="relative w-full h-[600px] border-2 border-transparent bg-gray-50/30 rounded-lg">
-              {/* Top row: Left and Right Sleeves (smaller) */}
+              {/* Interactive Container Components */}
               <div className="flex justify-center gap-8 mb-8 pt-6">
-                <div className="w-40 h-28 bg-white rounded-lg shadow-md border border-gray-200 flex items-center justify-center">
-                  <span className="text-xs font-semibold text-gray-500">LEFT SLEEVE</span>
-                </div>
-                <div className="w-40 h-28 bg-white rounded-lg shadow-md border border-gray-200 flex items-center justify-center">
-                  <span className="text-xs font-semibold text-gray-500">RIGHT SLEEVE</span>
-                </div>
+                <InteractiveContainer
+                  type="leftSleeve"
+                  title="LEFT SLEEVE"
+                  width={160}
+                  height={112}
+                  className="w-40 h-28"
+                  containerImages={containerImages}
+                  setContainerImages={setContainerImages}
+                  currentImage={image}
+                  setCurrentImage={setImage}
+                  imageTransforms={imageTransforms}
+                  setPreviewState={setPreviewState}
+                />
+                <InteractiveContainer
+                  type="rightSleeve"
+                  title="RIGHT SLEEVE"
+                  width={160}
+                  height={112}
+                  className="w-40 h-28"
+                  containerImages={containerImages}
+                  setContainerImages={setContainerImages}
+                  currentImage={image}
+                  setCurrentImage={setImage}
+                  imageTransforms={imageTransforms}
+                  setPreviewState={setPreviewState}
+                />
               </div>
 
               {/* Bottom row: Front and Back (larger) */}
               <div className="flex justify-center gap-12 px-8">
-                <div className="w-56 h-36 bg-white rounded-lg shadow-md border border-gray-200 flex items-center justify-center">
-                  <span className="text-sm font-semibold text-gray-500">FRONT</span>
-                </div>
-                <div className="w-56 h-36 bg-white rounded-lg shadow-md border border-gray-200 flex items-center justify-center">
-                  <span className="text-sm font-semibold text-gray-500">BACK</span>
-                </div>
+                <InteractiveContainer
+                  type="front"
+                  title="FRONT"
+                  width={224}
+                  height={144}
+                  className="w-56 h-36"
+                  containerImages={containerImages}
+                  setContainerImages={setContainerImages}
+                  currentImage={image}
+                  setCurrentImage={setImage}
+                  imageTransforms={imageTransforms}
+                  setPreviewState={setPreviewState}
+                />
+                <InteractiveContainer
+                  type="back"
+                  title="BACK"
+                  width={224}
+                  height={144}
+                  className="w-56 h-36"
+                  containerImages={containerImages}
+                  setContainerImages={setContainerImages}
+                  currentImage={image}
+                  setCurrentImage={setImage}
+                  imageTransforms={imageTransforms}
+                  setPreviewState={setPreviewState}
+                />
               </div>
 
               {/* Unified Image Control Component */}
@@ -961,6 +1328,7 @@ export default function EditorPage() {
                   onDragEnd={handleImageMouseUp}
                   onContextMenu={handleContextMenu}
                   isDragging={dragging?.isDragging || false}
+                  setContextMenu={setContextMenu}
                 />
               )}
 
@@ -1110,33 +1478,55 @@ export default function EditorPage() {
               buttons: tshirtColor,
               ribbedHem: tshirtColor,
             }}
-            textures={image ? {
-              front: image,
-              back: image,
-              leftSleeve: image,
-              rightSleeve: image,
-            } : {}}
+            textures={{
+              // Show placed container images
+              ...(containerImages.front.image && { front: containerImages.front.image }),
+              ...(containerImages.back.image && { back: containerImages.back.image }),
+              ...(containerImages.leftSleeve.image && { leftSleeve: containerImages.leftSleeve.image }),
+              ...(containerImages.rightSleeve.image && { rightSleeve: containerImages.rightSleeve.image }),
+              // Show real-time preview when dragging/transforming
+              ...(previewState.showPreview && previewState.previewImage && {
+                [previewState.previewContainer!]: previewState.previewImage
+              }),
+            }}
             textureTransforms={{
-              front: {
-                position: { x: imageTransforms.x / 200, y: -imageTransforms.y / 200 },
-                scale: imageTransforms.scale,
-                rotation: imageTransforms.rotation
-              },
-              back: {
-                position: { x: imageTransforms.x / 200, y: -imageTransforms.y / 200 },
-                scale: imageTransforms.scale,
-                rotation: imageTransforms.rotation
-              },
-              leftSleeve: {
-                position: { x: imageTransforms.x / 200, y: -imageTransforms.y / 200 },
-                scale: imageTransforms.scale,
-                rotation: imageTransforms.rotation
-              },
-              rightSleeve: {
-                position: { x: imageTransforms.x / 200, y: -imageTransforms.y / 200 },
-                scale: imageTransforms.scale,
-                rotation: imageTransforms.rotation
-              },
+              // Use container transforms for placed images
+              ...(containerImages.front.image && {
+                front: {
+                  position: { x: containerImages.front.transforms.x / 200, y: -containerImages.front.transforms.y / 200 },
+                  scale: containerImages.front.transforms.scale,
+                  rotation: containerImages.front.transforms.rotation
+                }
+              }),
+              ...(containerImages.back.image && {
+                back: {
+                  position: { x: containerImages.back.transforms.x / 200, y: -containerImages.back.transforms.y / 200 },
+                  scale: containerImages.back.transforms.scale,
+                  rotation: containerImages.back.transforms.rotation
+                }
+              }),
+              ...(containerImages.leftSleeve.image && {
+                leftSleeve: {
+                  position: { x: containerImages.leftSleeve.transforms.x / 200, y: -containerImages.leftSleeve.transforms.y / 200 },
+                  scale: containerImages.leftSleeve.transforms.scale,
+                  rotation: containerImages.leftSleeve.transforms.rotation
+                }
+              }),
+              ...(containerImages.rightSleeve.image && {
+                rightSleeve: {
+                  position: { x: containerImages.rightSleeve.transforms.x / 200, y: -containerImages.rightSleeve.transforms.y / 200 },
+                  scale: containerImages.rightSleeve.transforms.scale,
+                  rotation: containerImages.rightSleeve.transforms.rotation
+                }
+              }),
+              // Show real-time preview transforms when dragging/transforming
+              ...(previewState.showPreview && previewState.previewContainer && {
+                [previewState.previewContainer]: {
+                  position: { x: previewState.previewTransforms.x / 200, y: -previewState.previewTransforms.y / 200 },
+                  scale: previewState.previewTransforms.scale,
+                  rotation: previewState.previewTransforms.rotation
+                }
+              }),
             }}
           />
         </div>
