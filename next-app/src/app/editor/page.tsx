@@ -28,6 +28,69 @@ interface CropTransform {
 
 type ContainerType = 'front' | 'back' | 'leftSleeve' | 'rightSleeve';
 
+// Container Image Control Component Props
+interface ContainerImageControlProps {
+  container: ContainerType;
+  image: string;
+  transforms: {
+    x: number;
+    y: number;
+    scale: number;
+    rotation: number;
+    cropLeft: number;
+    cropRight: number;
+    cropTop: number;
+    cropBottom: number;
+  };
+  onTransform: (newTransforms: any) => void;
+  onRemove: () => void;
+}
+
+// Container Image Control Component
+function ContainerImageControl({
+  container,
+  image,
+  transforms,
+  onTransform,
+  onRemove,
+}: ContainerImageControlProps) {
+  return (
+    <div className="relative w-full h-full group">
+      {/* Container Image */}
+      <img
+        src={image}
+        alt={`${container} design`}
+        className="w-full h-full object-contain cursor-move"
+        style={{
+          transform: `translate(${transforms.x}px, ${transforms.y}px) scale(${transforms.scale / 100}) rotate(${transforms.rotation}deg)`,
+        }}
+        draggable={false}
+      />
+
+      {/* Remove Button */}
+      <button
+        onClick={(e) => {
+          e.stopPropagation();
+          onRemove();
+        }}
+        className="absolute top-2 right-2 w-6 h-6 bg-red-500 text-white rounded-full text-xs hover:bg-red-600 opacity-0 group-hover:opacity-100 transition-opacity z-50"
+      >
+        ×
+      </button>
+
+      {/* Transform Controls - Only show when this container is active */}
+      <div className="absolute -top-8 left-1/2 transform -translate-x-1/2 opacity-0 group-hover:opacity-100 transition-opacity z-40">
+        <div className="bg-white/95 backdrop-blur-sm rounded px-2 py-1 shadow-lg border border-gray-200">
+          <div className="flex items-center gap-2 text-xs">
+            <span className="text-gray-600">Scale:</span>
+            <span className="font-bold text-blue-600">{transforms.scale}%</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // Unified Image Control Component Props
 interface UnifiedImageControlProps {
   image: string;
@@ -47,7 +110,6 @@ interface UnifiedImageControlProps {
   onDragEnd: () => void;
   onContextMenu: (x: number, y: number) => void;
   isDragging: boolean;
-
 }
 
 // Unified Image Control Component - Clean Mockey.ai Style
@@ -241,16 +303,41 @@ export default function EditorPage() {
   const [tshirtColor, setTshirtColor] = useState('#ffffff');
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Unified image control system (mockey.ai style)
-  const [imageTransforms, setImageTransforms] = useState({
-    x: 0,
-    y: 0,
-    scale: 60,
-    rotation: 0,
-    cropLeft: 0,
-    cropRight: 0,
-    cropTop: 0,
-    cropBottom: 0,
+  // Individual container system (mockey.ai style)
+  const [containerImages, setContainerImages] = useState<Record<ContainerType, {
+    image: string | null;
+    transforms: {
+      x: number;
+      y: number;
+      scale: number;
+      rotation: number;
+      cropLeft: number;
+      cropRight: number;
+      cropTop: number;
+      cropBottom: number;
+    };
+    isDragOver: boolean;
+  }>>({
+    front: {
+      image: null,
+      transforms: { x: 0, y: 0, scale: 60, rotation: 0, cropLeft: 0, cropRight: 0, cropTop: 0, cropBottom: 0 },
+      isDragOver: false,
+    },
+    back: {
+      image: null,
+      transforms: { x: 0, y: 0, scale: 60, rotation: 0, cropLeft: 0, cropRight: 0, cropTop: 0, cropBottom: 0 },
+      isDragOver: false,
+    },
+    leftSleeve: {
+      image: null,
+      transforms: { x: 0, y: 0, scale: 50, rotation: 0, cropLeft: 0, cropRight: 0, cropTop: 0, cropBottom: 0 },
+      isDragOver: false,
+    },
+    rightSleeve: {
+      image: null,
+      transforms: { x: 0, y: 0, scale: 50, rotation: 0, cropLeft: 0, cropRight: 0, cropTop: 0, cropBottom: 0 },
+      isDragOver: false,
+    },
   });
 
   // Dragging state for unified image control
@@ -486,6 +573,7 @@ export default function EditorPage() {
     });
   };
 
+  // Individual Container Component with Drag/Drop Detection
   const renderContainer = (
     container: ContainerType,
     title: string,
@@ -493,17 +581,108 @@ export default function EditorPage() {
     aspectRatio: string,
     containerSize: string
   ) => {
+    const containerData = containerImages[container];
+    const isActive = containerData.image !== null;
+
     return (
-      <div className="bg-white rounded-lg shadow-md overflow-hidden border border-gray-200">
+      <div className="bg-white rounded-lg shadow-md overflow-hidden border-2 border-gray-200 transition-all duration-200 hover:shadow-lg">
         {/* Header */}
-        <div className="bg-gradient-to-r from-pink-50 to-purple-50 px-4 py-3 border-b border-gray-200">
-          <div className="text-sm font-semibold text-gray-800">{title}</div>
+        <div className="bg-gradient-to-r from-blue-50 to-indigo-50 px-4 py-3 border-b border-gray-200">
+          <div className="flex items-center justify-between">
+            <div className="text-sm font-semibold text-gray-800">{title}</div>
+            {isActive && (
+              <div className="flex items-center gap-1">
+                <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                <span className="text-xs text-green-600 font-medium">Active</span>
+              </div>
+            )}
+          </div>
         </div>
 
-        {/* Clean White Container */}
+        {/* Interactive Drop Zone */}
         <div className="p-4">
-          <div className={`${containerSize} bg-white border-2 border-dashed border-gray-300 rounded-lg relative overflow-hidden`}>
-            {/* Empty white container - no text, no controls */}
+          <div
+            className={`${containerSize} bg-white border-2 border-dashed rounded-lg relative overflow-hidden transition-all duration-200 ${containerData.isDragOver
+              ? 'border-blue-500 bg-blue-50 scale-105'
+              : isActive
+                ? 'border-green-300 bg-green-50'
+                : 'border-gray-300 hover:border-gray-400'
+              }`}
+            onDragOver={(e) => {
+              e.preventDefault();
+              setContainerImages(prev => ({
+                ...prev,
+                [container]: { ...prev[container], isDragOver: true }
+              }));
+            }}
+            onDragLeave={(e) => {
+              e.preventDefault();
+              setContainerImages(prev => ({
+                ...prev,
+                [container]: { ...prev[container], isDragOver: false }
+              }));
+            }}
+            onDrop={(e) => {
+              e.preventDefault();
+              setContainerImages(prev => ({
+                ...prev,
+                [container]: { ...prev[container], isDragOver: false }
+              }));
+
+              if (image) {
+                // Place image in this specific container
+                setContainerImages(prev => ({
+                  ...prev,
+                  [container]: {
+                    ...prev[container],
+                    image: image,
+                    transforms: {
+                      x: 0,
+                      y: 0,
+                      scale: container === 'leftSleeve' || container === 'rightSleeve' ? 50 : 60,
+                      rotation: 0,
+                      cropLeft: 0,
+                      cropRight: 0,
+                      cropTop: 0,
+                      cropBottom: 0,
+                    }
+                  }
+                }));
+
+                // Clear the global image after placing
+                setImage(null);
+              }
+            }}
+          >
+            {containerData.image ? (
+              <ContainerImageControl
+                container={container}
+                image={containerData.image}
+                transforms={containerData.transforms}
+                onTransform={(newTransforms) => {
+                  setContainerImages(prev => ({
+                    ...prev,
+                    [container]: { ...prev[container], transforms: newTransforms }
+                  }));
+                }}
+                onRemove={() => {
+                  setContainerImages(prev => ({
+                    ...prev,
+                    [container]: { ...prev[container], image: null }
+                  }));
+                }}
+              />
+            ) : (
+              <div className="flex items-center justify-center h-full text-gray-400">
+                <div className="text-center">
+                  <svg className="w-8 h-8 mx-auto mb-2 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                  </svg>
+                  <p className="text-xs">Drop image here</p>
+                  <p className="text-xs text-gray-300 mt-1">or drag from above</p>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       </div>
