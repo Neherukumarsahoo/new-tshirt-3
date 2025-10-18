@@ -51,6 +51,7 @@ interface TShirtModelProps {
 
 function TShirtModel({ modelPath = '/poloshirt2.glb', colors, textures, uvTextures, textureTransforms }: TShirtModelProps) {
   const { scene } = useGLTF(modelPath);
+  console.log('Loaded model path:', modelPath, scene);
   const modelRef = useRef<THREE.Group>(null);
   const textureLoader = useMemo(() => new THREE.TextureLoader(), []);
 
@@ -103,48 +104,20 @@ function TShirtModel({ modelPath = '/poloshirt2.glb', colors, textures, uvTextur
       if (child instanceof THREE.Mesh) {
         const meshName = child.name.toLowerCase();
 
-        // Debug: Log all mesh names to identify the actual structure
-        console.log('Found mesh:', child.name, '(lowercase:', meshName + ')');
-
-        // Flexible mesh name mapping function
+        // Permissive mesh name mapping function
         const getMeshPart = (name: string): 'front' | 'back' | 'leftSleeve' | 'rightSleeve' | null => {
-          const lowerName = name.toLowerCase();
-
-          // Front mappings
-          if (lowerName.includes('front') ||
-              lowerName.includes('body_front') ||
-              lowerName.includes('main_front') ||
-              lowerName.includes('shirt_front') ||
-              lowerName.includes('chest') ||
-              lowerName.includes('polo_front')) {
-            return 'front';
-          }
-
-          // Back mappings
-          if (lowerName.includes('back') ||
-              lowerName.includes('body_back') ||
-              lowerName.includes('main_back') ||
-              lowerName.includes('shirt_back') ||
-              lowerName.includes('polo_back')) {
-            return 'back';
-          }
-
-          // Left sleeve mappings
-          if ((lowerName.includes('left') || lowerName.includes('l')) &&
-              (lowerName.includes('sleeve') || lowerName.includes('arm'))) {
-            return 'leftSleeve';
-          }
-
-          // Right sleeve mappings
-          if ((lowerName.includes('right') || lowerName.includes('r')) &&
-              (lowerName.includes('sleeve') || lowerName.includes('arm'))) {
-            return 'rightSleeve';
-          }
-
+          const n = name.toLowerCase();
+          if (n.includes('front') || n.includes('chest') || n.includes('polo_front') || n.includes('torso_f')) return 'front';
+          if (n.includes('back') || n.includes('polo_back') || n.includes('torso_b')) return 'back';
+          if ((n.includes('left') || n.includes('_l') || n.endsWith('_l')) && (n.includes('sleeve') || n.includes('arm'))) return 'leftSleeve';
+          if ((n.includes('right') || n.includes('_r') || n.endsWith('_r')) && (n.includes('sleeve') || n.includes('arm'))) return 'rightSleeve';
           return null;
         };
 
         const meshPart = getMeshPart(child.name);
+
+        // Debug: Log all mesh names to identify the actual structure
+        console.log('Found mesh:', child.name, '(lowercase:', meshName + ')', 'meshPart:', meshPart);
 
         // Apply materials based on identified mesh parts
         if (meshPart === 'front') {
@@ -166,18 +139,16 @@ function TShirtModel({ modelPath = '/poloshirt2.glb', colors, textures, uvTextur
                 texture.rotation = (transform.rotation * Math.PI) / 180;
                 texture.center.set(0.5, 0.5);
 
-                // Improved scale calculation for better texture coverage
-                const scaleX = (transform.scale / 100) * 0.8; // Reduce by 20% for better fit
-                const scaleY = (transform.scale / 100) * 0.8;
+                // Conservative transform mapping to validate shifting works
+                const scaleX = transform.scale / 400;
+                const scaleY = transform.scale / 400;
                 texture.repeat.set(scaleX, scaleY);
-
-                // Fine-tuned position calculation with better sensitivity
-                // Adjust denominators based on UV mapping - try different values
-                const offsetX = transform.position.x / 150; // Slower, more precise movement
-                const offsetY = -transform.position.y / 150; // Inverted Y for proper orientation
+                const offsetX = transform.position.x / 1000;
+                const offsetY = -transform.position.y / 1000;
                 texture.offset.set(offsetX, offsetY);
 
                 // Debug logging for texture transform values
+                console.log('Applying texture to front with url', textures.front);
                 console.log('Front texture transform:', {
                   position: transform.position,
                   scale: transform.scale,
@@ -219,17 +190,16 @@ function TShirtModel({ modelPath = '/poloshirt2.glb', colors, textures, uvTextur
                 texture.rotation = (transform.rotation * Math.PI) / 180;
                 texture.center.set(0.5, 0.5);
 
-                // Improved scale calculation for better texture coverage
-                const scaleX = (transform.scale / 100) * 0.8; // Reduce by 20% for better fit
-                const scaleY = (transform.scale / 100) * 0.8;
+                // Conservative transform mapping to validate shifting works
+                const scaleX = transform.scale / 400;
+                const scaleY = transform.scale / 400;
                 texture.repeat.set(scaleX, scaleY);
-
-                // Fine-tuned position calculation with better sensitivity
-                const offsetX = transform.position.x / 150; // Slower, more precise movement
-                const offsetY = -transform.position.y / 150; // Inverted Y for proper orientation
+                const offsetX = transform.position.x / 1000;
+                const offsetY = -transform.position.y / 1000;
                 texture.offset.set(offsetX, offsetY);
 
                 // Debug logging for texture transform values
+                console.log('Applying texture to back with url', textures.back);
                 console.log('Back texture transform:', {
                   position: transform.position,
                   scale: transform.scale,
@@ -270,17 +240,16 @@ function TShirtModel({ modelPath = '/poloshirt2.glb', colors, textures, uvTextur
                 texture.rotation = (transform.rotation * Math.PI) / 180;
                 texture.center.set(0.5, 0.5);
 
-                // Improved scale calculation for better texture coverage
-                const scaleX = (transform.scale / 100) * 0.8; // Reduce by 20% for better fit
-                const scaleY = (transform.scale / 100) * 0.8;
+                // Conservative transform mapping to validate shifting works
+                const scaleX = transform.scale / 400;
+                const scaleY = transform.scale / 400;
                 texture.repeat.set(scaleX, scaleY);
-
-                // Fine-tuned position calculation with better sensitivity
-                const offsetX = transform.position.x / 150; // Slower, more precise movement
-                const offsetY = -transform.position.y / 150; // Inverted Y for proper orientation
+                const offsetX = transform.position.x / 1000;
+                const offsetY = -transform.position.y / 1000;
                 texture.offset.set(offsetX, offsetY);
 
                 // Debug logging for texture transform values
+                console.log('Applying texture to leftSleeve with url', textures.leftSleeve);
                 console.log('Left Sleeve texture transform:', {
                   position: transform.position,
                   scale: transform.scale,
@@ -321,17 +290,16 @@ function TShirtModel({ modelPath = '/poloshirt2.glb', colors, textures, uvTextur
                 texture.rotation = (transform.rotation * Math.PI) / 180;
                 texture.center.set(0.5, 0.5);
 
-                // Improved scale calculation for better texture coverage
-                const scaleX = (transform.scale / 100) * 0.8; // Reduce by 20% for better fit
-                const scaleY = (transform.scale / 100) * 0.8;
+                // Conservative transform mapping to validate shifting works
+                const scaleX = transform.scale / 400;
+                const scaleY = transform.scale / 400;
                 texture.repeat.set(scaleX, scaleY);
-
-                // Fine-tuned position calculation with better sensitivity
-                const offsetX = transform.position.x / 150; // Slower, more precise movement
-                const offsetY = -transform.position.y / 150; // Inverted Y for proper orientation
+                const offsetX = transform.position.x / 1000;
+                const offsetY = -transform.position.y / 1000;
                 texture.offset.set(offsetX, offsetY);
 
                 // Debug logging for texture transform values
+                console.log('Applying texture to rightSleeve with url', textures.rightSleeve);
                 console.log('Right Sleeve texture transform:', {
                   position: transform.position,
                   scale: transform.scale,

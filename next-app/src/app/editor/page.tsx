@@ -217,7 +217,12 @@ function InteractiveContainer({
                 showPreview: true,
                 previewContainer: type,
                 previewImage: currentImage,
-                previewTransforms: { ...imageTransforms },
+                previewTransforms: {
+                  x: imageTransforms.x,
+                  y: imageTransforms.y,
+                  scale: imageTransforms.scale,
+                  rotation: imageTransforms.rotation,
+                },
               });
             }
           }}
@@ -271,6 +276,14 @@ function InteractiveContainer({
 
               // Clear the global image after placing
               setCurrentImage(null);
+
+              // Clear preview state after placing
+              setPreviewState({
+                showPreview: false,
+                previewContainer: null,
+                previewImage: null,
+                previewTransforms: { x: 0, y: 0, scale: 60, rotation: 0 },
+              });
             }
           }}
         >
@@ -1445,15 +1458,15 @@ export default function EditorPage() {
               ribbedHem: tshirtColor,
             }}
             textures={{
-              // Show placed container images
+              // Show placed container images (preview temporarily disabled for debugging)
               ...(containerImages.front && { front: containerImages.front }),
               ...(containerImages.back && { back: containerImages.back }),
               ...(containerImages.leftSleeve && { leftSleeve: containerImages.leftSleeve }),
               ...(containerImages.rightSleeve && { rightSleeve: containerImages.rightSleeve }),
-              // Show preview when hovering over container with image
-              ...(previewState.showPreview && previewState.previewImage && {
-                [previewState.previewContainer!]: previewState.previewImage
-              }),
+              // Preview temporarily disabled for debugging - will re-enable after confirming placed images work
+              // ...(previewState.showPreview && previewState.previewImage && {
+              //   [previewState.previewContainer!]: previewState.previewImage
+              // }),
             }}
             textureTransforms={{
               // Show transforms for placed images
