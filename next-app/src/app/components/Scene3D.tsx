@@ -86,7 +86,7 @@ function TShirtModel({ modelPath = '/poloshirt3.glb', colors, textures, uvTextur
     };
 
     return {
-      body: createMaterial(colors.body, textures?.front),
+      body: createMaterial(colors.body, undefined), // No texture on base body - only apply textures to specific parts
       neck: createMaterial(colors.neck),
       neckBorder: createMaterial(colors.neckBorder),
       cuff: createMaterial(colors.cuff),
@@ -103,8 +103,51 @@ function TShirtModel({ modelPath = '/poloshirt3.glb', colors, textures, uvTextur
       if (child instanceof THREE.Mesh) {
         const meshName = child.name.toLowerCase();
 
-        // Apply materials based on mesh names - try to identify the actual mesh structure
-        if (meshName === 'front' || meshName === 'body_front' || meshName === 'main_front' || meshName === 'shirt_front') {
+        // Debug: Log all mesh names to identify the actual structure
+        console.log('Found mesh:', child.name, '(lowercase:', meshName + ')');
+
+        // Flexible mesh name mapping function
+        const getMeshPart = (name: string): 'front' | 'back' | 'leftSleeve' | 'rightSleeve' | null => {
+          const lowerName = name.toLowerCase();
+
+          // Front mappings
+          if (lowerName.includes('front') ||
+              lowerName.includes('body_front') ||
+              lowerName.includes('main_front') ||
+              lowerName.includes('shirt_front') ||
+              lowerName.includes('chest') ||
+              lowerName.includes('polo_front')) {
+            return 'front';
+          }
+
+          // Back mappings
+          if (lowerName.includes('back') ||
+              lowerName.includes('body_back') ||
+              lowerName.includes('main_back') ||
+              lowerName.includes('shirt_back') ||
+              lowerName.includes('polo_back')) {
+            return 'back';
+          }
+
+          // Left sleeve mappings
+          if ((lowerName.includes('left') || lowerName.includes('l')) &&
+              (lowerName.includes('sleeve') || lowerName.includes('arm'))) {
+            return 'leftSleeve';
+          }
+
+          // Right sleeve mappings
+          if ((lowerName.includes('right') || lowerName.includes('r')) &&
+              (lowerName.includes('sleeve') || lowerName.includes('arm'))) {
+            return 'rightSleeve';
+          }
+
+          return null;
+        };
+
+        const meshPart = getMeshPart(child.name);
+
+        // Apply materials based on identified mesh parts
+        if (meshPart === 'front') {
           // Apply front texture only to front body meshes
           if (textures?.front) {
             try {
@@ -123,13 +166,25 @@ function TShirtModel({ modelPath = '/poloshirt3.glb', colors, textures, uvTextur
                 texture.rotation = (transform.rotation * Math.PI) / 180;
                 texture.center.set(0.5, 0.5);
 
-                const scaleX = transform.scale / 100;
-                const scaleY = transform.scale / 100;
+                // Improved scale calculation for better texture coverage
+                const scaleX = (transform.scale / 100) * 0.8; // Reduce by 20% for better fit
+                const scaleY = (transform.scale / 100) * 0.8;
                 texture.repeat.set(scaleX, scaleY);
 
-                const offsetX = transform.position.x / 100;
-                const offsetY = transform.position.y / 100;
+                // Fine-tuned position calculation with better sensitivity
+                // Adjust denominators based on UV mapping - try different values
+                const offsetX = transform.position.x / 150; // Slower, more precise movement
+                const offsetY = -transform.position.y / 150; // Inverted Y for proper orientation
                 texture.offset.set(offsetX, offsetY);
+
+                // Debug logging for texture transform values
+                console.log('Front texture transform:', {
+                  position: transform.position,
+                  scale: transform.scale,
+                  rotation: transform.rotation,
+                  calculatedOffset: { x: offsetX, y: offsetY },
+                  calculatedScale: { x: scaleX, y: scaleY }
+                });
               }
 
               // Create material that preserves fabric color but adds texture
@@ -146,7 +201,7 @@ function TShirtModel({ modelPath = '/poloshirt3.glb', colors, textures, uvTextur
           } else {
             child.material = materials.body;
           }
-        } else if (meshName === 'back' || meshName === 'body_back' || meshName === 'main_back' || meshName === 'shirt_back') {
+        } else if (meshPart === 'back') {
           // Apply back texture only to back body meshes
           if (textures?.back) {
             try {
@@ -164,13 +219,24 @@ function TShirtModel({ modelPath = '/poloshirt3.glb', colors, textures, uvTextur
                 texture.rotation = (transform.rotation * Math.PI) / 180;
                 texture.center.set(0.5, 0.5);
 
-                const scaleX = transform.scale / 100;
-                const scaleY = transform.scale / 100;
+                // Improved scale calculation for better texture coverage
+                const scaleX = (transform.scale / 100) * 0.8; // Reduce by 20% for better fit
+                const scaleY = (transform.scale / 100) * 0.8;
                 texture.repeat.set(scaleX, scaleY);
 
-                const offsetX = transform.position.x / 100;
-                const offsetY = transform.position.y / 100;
+                // Fine-tuned position calculation with better sensitivity
+                const offsetX = transform.position.x / 150; // Slower, more precise movement
+                const offsetY = -transform.position.y / 150; // Inverted Y for proper orientation
                 texture.offset.set(offsetX, offsetY);
+
+                // Debug logging for texture transform values
+                console.log('Back texture transform:', {
+                  position: transform.position,
+                  scale: transform.scale,
+                  rotation: transform.rotation,
+                  calculatedOffset: { x: offsetX, y: offsetY },
+                  calculatedScale: { x: scaleX, y: scaleY }
+                });
               }
 
               child.material = new THREE.MeshLambertMaterial({
@@ -186,7 +252,7 @@ function TShirtModel({ modelPath = '/poloshirt3.glb', colors, textures, uvTextur
           } else {
             child.material = materials.body;
           }
-        } else if (meshName === 'sleeve_left' || meshName === 'left_sleeve' || meshName === 'sleeve_l' || meshName === 'arm_left') {
+        } else if (meshPart === 'leftSleeve') {
           // Apply left sleeve texture
           if (textures?.leftSleeve) {
             try {
@@ -204,13 +270,24 @@ function TShirtModel({ modelPath = '/poloshirt3.glb', colors, textures, uvTextur
                 texture.rotation = (transform.rotation * Math.PI) / 180;
                 texture.center.set(0.5, 0.5);
 
-                const scaleX = transform.scale / 100;
-                const scaleY = transform.scale / 100;
+                // Improved scale calculation for better texture coverage
+                const scaleX = (transform.scale / 100) * 0.8; // Reduce by 20% for better fit
+                const scaleY = (transform.scale / 100) * 0.8;
                 texture.repeat.set(scaleX, scaleY);
 
-                const offsetX = transform.position.x / 100;
-                const offsetY = transform.position.y / 100;
+                // Fine-tuned position calculation with better sensitivity
+                const offsetX = transform.position.x / 150; // Slower, more precise movement
+                const offsetY = -transform.position.y / 150; // Inverted Y for proper orientation
                 texture.offset.set(offsetX, offsetY);
+
+                // Debug logging for texture transform values
+                console.log('Left Sleeve texture transform:', {
+                  position: transform.position,
+                  scale: transform.scale,
+                  rotation: transform.rotation,
+                  calculatedOffset: { x: offsetX, y: offsetY },
+                  calculatedScale: { x: scaleX, y: scaleY }
+                });
               }
 
               child.material = new THREE.MeshLambertMaterial({
@@ -226,7 +303,7 @@ function TShirtModel({ modelPath = '/poloshirt3.glb', colors, textures, uvTextur
           } else {
             child.material = materials.body;
           }
-        } else if (meshName === 'sleeve_right' || meshName === 'right_sleeve' || meshName === 'sleeve_r' || meshName === 'arm_right') {
+        } else if (meshPart === 'rightSleeve') {
           // Apply right sleeve texture
           if (textures?.rightSleeve) {
             try {
@@ -244,13 +321,24 @@ function TShirtModel({ modelPath = '/poloshirt3.glb', colors, textures, uvTextur
                 texture.rotation = (transform.rotation * Math.PI) / 180;
                 texture.center.set(0.5, 0.5);
 
-                const scaleX = transform.scale / 100;
-                const scaleY = transform.scale / 100;
+                // Improved scale calculation for better texture coverage
+                const scaleX = (transform.scale / 100) * 0.8; // Reduce by 20% for better fit
+                const scaleY = (transform.scale / 100) * 0.8;
                 texture.repeat.set(scaleX, scaleY);
 
-                const offsetX = transform.position.x / 100;
-                const offsetY = transform.position.y / 100;
+                // Fine-tuned position calculation with better sensitivity
+                const offsetX = transform.position.x / 150; // Slower, more precise movement
+                const offsetY = -transform.position.y / 150; // Inverted Y for proper orientation
                 texture.offset.set(offsetX, offsetY);
+
+                // Debug logging for texture transform values
+                console.log('Right Sleeve texture transform:', {
+                  position: transform.position,
+                  scale: transform.scale,
+                  rotation: transform.rotation,
+                  calculatedOffset: { x: offsetX, y: offsetY },
+                  calculatedScale: { x: scaleX, y: scaleY }
+                });
               }
 
               child.material = new THREE.MeshLambertMaterial({
