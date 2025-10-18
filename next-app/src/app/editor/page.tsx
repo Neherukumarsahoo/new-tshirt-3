@@ -1469,31 +1469,31 @@ export default function EditorPage() {
               // }),
             }}
             textureTransforms={{
-              // Show transforms for placed images
+              // Show transforms for placed images - using same divisors as Scene3D
               ...(containerImages.front && {
                 front: {
-                  position: { x: containerTransforms.front.x / 200, y: -containerTransforms.front.y / 200 },
+                  position: { x: containerTransforms.front.x / 1500, y: -containerTransforms.front.y / 1500 },
                   scale: containerTransforms.front.scale,
                   rotation: containerTransforms.front.rotation,
                 }
               }),
               ...(containerImages.back && {
                 back: {
-                  position: { x: containerTransforms.back.x / 200, y: -containerTransforms.back.y / 200 },
+                  position: { x: containerTransforms.back.x / 1500, y: -containerTransforms.back.y / 1500 },
                   scale: containerTransforms.back.scale,
                   rotation: containerTransforms.back.rotation,
                 }
               }),
               ...(containerImages.leftSleeve && {
                 leftSleeve: {
-                  position: { x: containerTransforms.leftSleeve.x / 200, y: -containerTransforms.leftSleeve.y / 200 },
+                  position: { x: containerTransforms.leftSleeve.x / 1500, y: -containerTransforms.leftSleeve.y / 1500 },
                   scale: containerTransforms.leftSleeve.scale,
                   rotation: containerTransforms.leftSleeve.rotation,
                 }
               }),
               ...(containerImages.rightSleeve && {
                 rightSleeve: {
-                  position: { x: containerTransforms.rightSleeve.x / 200, y: -containerTransforms.rightSleeve.y / 200 },
+                  position: { x: containerTransforms.rightSleeve.x / 1500, y: -containerTransforms.rightSleeve.y / 1500 },
                   scale: containerTransforms.rightSleeve.scale,
                   rotation: containerTransforms.rightSleeve.rotation,
                 }
@@ -1501,7 +1501,7 @@ export default function EditorPage() {
               // Show preview transforms when hovering over container with image
               ...(previewState.showPreview && previewState.previewContainer && {
                 [previewState.previewContainer]: {
-                  position: { x: previewState.previewTransforms.x / 200, y: -previewState.previewTransforms.y / 200 },
+                  position: { x: previewState.previewTransforms.x / 1500, y: -previewState.previewTransforms.y / 1500 },
                   scale: previewState.previewTransforms.scale,
                   rotation: previewState.previewTransforms.rotation,
                 }
