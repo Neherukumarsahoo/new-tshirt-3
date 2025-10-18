@@ -49,7 +49,7 @@ interface TShirtModelProps {
   };
 }
 
-function TShirtModel({ modelPath = '/poloshirt3.glb', colors, textures, uvTextures, textureTransforms }: TShirtModelProps) {
+function TShirtModel({ modelPath = '/poloshirt2.glb', colors, textures, uvTextures, textureTransforms }: TShirtModelProps) {
   const { scene } = useGLTF(modelPath);
   const modelRef = useRef<THREE.Group>(null);
   const textureLoader = useMemo(() => new THREE.TextureLoader(), []);
