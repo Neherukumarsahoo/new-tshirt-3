@@ -253,38 +253,53 @@ function InteractiveContainer({
           }}
           onDrop={(e) => {
             e.preventDefault();
+            console.log('Drop on', type, 'activeContainer:', activeContainer, 'currentImage:', currentImage);
             setDragOverStates(prev => ({
               ...prev,
               [type]: false
             }));
 
-            if (currentImage && activeContainer) {
-              // Place image in the active container (Mockey.ai style)
-              setContainerImages(prev => ({
+            if (!currentImage || !activeContainer) {
+              console.warn('Drop ignored because currentImage or activeContainer missing');
+              return;
+            }
+
+            console.log('🔄 DROPPING: Placing image on container:', activeContainer);
+            console.log('🔄 DROPPING: currentImage URL:', currentImage);
+
+            // Place image in the active container (Mockey.ai style)
+            setContainerImages(prev => {
+              const newState = {
                 ...prev,
                 [activeContainer]: currentImage
-              }));
+              };
+              console.log('🔄 DROPPING: containerImages after update:', newState);
+              return newState;
+            });
 
-              // Copy current image transforms to the active container
-              setContainerTransforms(prev => ({
+            // Copy current image transforms to the active container
+            setContainerTransforms(prev => {
+              const newState = {
                 ...prev,
                 [activeContainer]: {
                   ...prev[activeContainer],
                   ...imageTransforms
                 }
-              }));
+              };
+              console.log('🔄 DROPPING: containerTransforms after update:', newState);
+              return newState;
+            });
 
-              // Clear the global image after placing
-              setCurrentImage(null);
+            // Clear the global image after placing
+            setCurrentImage(null);
 
-              // Clear preview state after placing
-              setPreviewState({
-                showPreview: false,
-                previewContainer: null,
-                previewImage: null,
-                previewTransforms: { x: 0, y: 0, scale: 60, rotation: 0 },
-              });
-            }
+            // Clear preview state after placing
+            setPreviewState({
+              showPreview: false,
+              previewContainer: null,
+              previewImage: null,
+              previewTransforms: { x: 0, y: 0, scale: 60, rotation: 0 },
+            });
           }}
         >
           {containerImage ? (

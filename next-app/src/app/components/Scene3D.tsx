@@ -1,6 +1,6 @@
 'use client';
 
-import { Suspense } from 'react';
+import React, { Suspense } from 'react';
 import { Canvas } from '@react-three/fiber';
 import { OrbitControls, useGLTF } from '@react-three/drei';
 import { useRef, useState, useEffect, useMemo } from 'react';
@@ -57,6 +57,12 @@ function TShirtModel({ modelPath = '/poloshirt2.glb', colors, textures, uvTextur
   scene.traverse((child) => {
     console.log('🔍 Model child:', child.name, child.type);
   });
+
+  // Log textures every render
+  React.useEffect(() => {
+    console.log('🔍 Scene3D textures prop:', textures);
+    console.log('🔍 Scene3D transforms prop:', textureTransforms);
+  }, [textures, textureTransforms]);
   const modelRef = useRef<THREE.Group>(null);
   const textureLoader = useMemo(() => new THREE.TextureLoader(), []);
 
@@ -125,7 +131,12 @@ function TShirtModel({ modelPath = '/poloshirt2.glb', colors, textures, uvTextur
           // Apply front texture only to front body meshes
           if (textures?.front) {
             try {
-              const texture = textureLoader.load(textures.front);
+              const texture = textureLoader.load(
+                textures.front,
+                () => console.log('✅ Texture loaded OK:', textures.front),
+                undefined,
+                (err) => console.error('❌ Texture load failed:', textures.front, err)
+              );
               texture.flipY = false;
               texture.wrapS = THREE.ClampToEdgeWrapping;
               texture.wrapT = THREE.ClampToEdgeWrapping;
@@ -157,13 +168,18 @@ function TShirtModel({ modelPath = '/poloshirt2.glb', colors, textures, uvTextur
               texture.offset.set(0, 0);      // Centered position
               texture.rotation = 0;          // No rotation
 
-              // Create material that preserves fabric color but adds texture
+              // 🔥 FORCE VISIBILITY: Ensure decal draws on top
               child.material = new THREE.MeshLambertMaterial({
                 map: texture,
                 transparent: true,
-                // 🔥 TEMPORARILY: Remove color tinting to see pure texture
-                // color: new THREE.Color(colors.body), // Comment this out for testing
+                depthTest: true,
+                depthWrite: false, // do not write depth
+                polygonOffset: true, // push slightly toward camera
+                polygonOffsetFactor: -1, // small negative to render on top
               });
+
+              // Force renderOrder higher to ensure decal renders on top
+              child.renderOrder = 999;
 
               console.log('✅ Successfully applied texture to', meshPart, 'mesh:', child.name);
               child.material.needsUpdate = true;
@@ -178,7 +194,12 @@ function TShirtModel({ modelPath = '/poloshirt2.glb', colors, textures, uvTextur
           // Apply back texture only to back body meshes
           if (textures?.back) {
             try {
-              const texture = textureLoader.load(textures.back);
+              const texture = textureLoader.load(
+                textures.back,
+                () => console.log('✅ Texture loaded OK:', textures.back),
+                undefined,
+                (err) => console.error('❌ Texture load failed:', textures.back, err)
+              );
               texture.flipY = false;
               texture.wrapS = THREE.ClampToEdgeWrapping;
               texture.wrapT = THREE.ClampToEdgeWrapping;
@@ -209,12 +230,18 @@ function TShirtModel({ modelPath = '/poloshirt2.glb', colors, textures, uvTextur
               texture.offset.set(0, 0);      // Centered position
               texture.rotation = 0;          // No rotation
 
+              // 🔥 FORCE VISIBILITY: Ensure decal draws on top
               child.material = new THREE.MeshLambertMaterial({
                 map: texture,
                 transparent: true,
-                // 🔥 TEMPORARILY: Remove color tinting to see pure texture
-                // color: new THREE.Color(colors.body), // Comment this out for testing
+                depthTest: true,
+                depthWrite: false, // do not write depth
+                polygonOffset: true, // push slightly toward camera
+                polygonOffsetFactor: -1, // small negative to render on top
               });
+
+              // Force renderOrder higher to ensure decal renders on top
+              child.renderOrder = 999;
 
               console.log('✅ Successfully applied texture to', meshPart, 'mesh:', child.name);
               child.material.needsUpdate = true;
@@ -229,7 +256,12 @@ function TShirtModel({ modelPath = '/poloshirt2.glb', colors, textures, uvTextur
           // Apply left sleeve texture
           if (textures?.leftSleeve) {
             try {
-              const texture = textureLoader.load(textures.leftSleeve);
+              const texture = textureLoader.load(
+                textures.leftSleeve,
+                () => console.log('✅ Texture loaded OK:', textures.leftSleeve),
+                undefined,
+                (err) => console.error('❌ Texture load failed:', textures.leftSleeve, err)
+              );
               texture.flipY = false;
               texture.wrapS = THREE.ClampToEdgeWrapping;
               texture.wrapT = THREE.ClampToEdgeWrapping;
@@ -260,12 +292,18 @@ function TShirtModel({ modelPath = '/poloshirt2.glb', colors, textures, uvTextur
               texture.offset.set(0, 0);      // Centered position
               texture.rotation = 0;          // No rotation
 
+              // 🔥 FORCE VISIBILITY: Ensure decal draws on top
               child.material = new THREE.MeshLambertMaterial({
                 map: texture,
                 transparent: true,
-                // 🔥 TEMPORARILY: Remove color tinting to see pure texture
-                // color: new THREE.Color(colors.body), // Comment this out for testing
+                depthTest: true,
+                depthWrite: false, // do not write depth
+                polygonOffset: true, // push slightly toward camera
+                polygonOffsetFactor: -1, // small negative to render on top
               });
+
+              // Force renderOrder higher to ensure decal renders on top
+              child.renderOrder = 999;
 
               console.log('✅ Successfully applied texture to', meshPart, 'mesh:', child.name);
               child.material.needsUpdate = true;
@@ -280,7 +318,12 @@ function TShirtModel({ modelPath = '/poloshirt2.glb', colors, textures, uvTextur
           // Apply right sleeve texture
           if (textures?.rightSleeve) {
             try {
-              const texture = textureLoader.load(textures.rightSleeve);
+              const texture = textureLoader.load(
+                textures.rightSleeve,
+                () => console.log('✅ Texture loaded OK:', textures.rightSleeve),
+                undefined,
+                (err) => console.error('❌ Texture load failed:', textures.rightSleeve, err)
+              );
               texture.flipY = false;
               texture.wrapS = THREE.ClampToEdgeWrapping;
               texture.wrapT = THREE.ClampToEdgeWrapping;
@@ -311,12 +354,18 @@ function TShirtModel({ modelPath = '/poloshirt2.glb', colors, textures, uvTextur
               texture.offset.set(0, 0);      // Centered position
               texture.rotation = 0;          // No rotation
 
+              // 🔥 FORCE VISIBILITY: Ensure decal draws on top
               child.material = new THREE.MeshLambertMaterial({
                 map: texture,
                 transparent: true,
-                // 🔥 TEMPORARILY: Remove color tinting to see pure texture
-                // color: new THREE.Color(colors.body), // Comment this out for testing
+                depthTest: true,
+                depthWrite: false, // do not write depth
+                polygonOffset: true, // push slightly toward camera
+                polygonOffsetFactor: -1, // small negative to render on top
               });
+
+              // Force renderOrder higher to ensure decal renders on top
+              child.renderOrder = 999;
 
               console.log('✅ Successfully applied texture to', meshPart, 'mesh:', child.name);
               child.material.needsUpdate = true;
