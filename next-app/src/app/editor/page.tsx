@@ -253,7 +253,11 @@ function InteractiveContainer({
           }}
           onDrop={(e) => {
             e.preventDefault();
-            console.log('Drop on', type, 'activeContainer:', activeContainer, 'currentImage:', currentImage);
+            console.log('🔥 DROP EVENT:', {
+              type: type,
+              activeContainer: activeContainer,
+              currentImage: currentImage
+            });
             setDragOverStates(prev => ({
               ...prev,
               [type]: false
@@ -264,17 +268,13 @@ function InteractiveContainer({
               return;
             }
 
-            console.log('🔄 DROPPING: Placing image on container:', activeContainer);
-            console.log('🔄 DROPPING: currentImage URL:', currentImage);
+            console.log('🔥 BEFORE setContainerImages:', containerImages);
 
             // Place image in the active container (Mockey.ai style)
             setContainerImages(prev => {
-              const newState = {
-                ...prev,
-                [activeContainer]: currentImage
-              };
-              console.log('🔄 DROPPING: containerImages after update:', newState);
-              return newState;
+              const next = { ...prev, [activeContainer]: currentImage };
+              console.log('🔥 AFTER setContainerImages:', next);
+              return next;
             });
 
             // Copy current image transforms to the active container
@@ -286,7 +286,7 @@ function InteractiveContainer({
                   ...imageTransforms
                 }
               };
-              console.log('🔄 DROPPING: containerTransforms after update:', newState);
+              console.log('🔥 AFTER setContainerTransforms:', newState);
               return newState;
             });
 

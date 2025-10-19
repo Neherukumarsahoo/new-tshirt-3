@@ -115,16 +115,55 @@ function TShirtModel({ modelPath = '/poloshirt2.glb', colors, textures, uvTextur
       if (child instanceof THREE.Mesh) {
         const meshName = child.name.toLowerCase();
 
-        // 🔥 UNIVERSAL FALLBACK: Apply front texture to ALL meshes for testing
+        // 🔥 CRITICAL: Only apply texture to main body mesh, not design overlay
         const getMeshPart = (name: string): 'front' | 'back' | 'leftSleeve' | 'rightSleeve' | null => {
-          // 🔥 UNIVERSAL FALLBACK: Apply front texture to ALL meshes for testing
-          return 'front';
+          const n = name.toLowerCase();
+
+          // 🔥 CRITICAL: Only apply texture to main body mesh, not design overlay
+          if (n === 'body') {
+            return 'front'; // Apply front texture only to body mesh
+          }
+
+          // For back/sleeves, you'll need separate body meshes or UV mapping
+          // For now, let's get front working first
+          return null;
         };
 
         const meshPart = getMeshPart(child.name);
 
         // Debug: Log all mesh names to identify the actual structure
         console.log('Found mesh:', child.name, '(lowercase:', meshName + ')', 'meshPart:', meshPart);
+
+        // Special handling for design mesh - make it transparent when texture is applied
+        if (child.name.toLowerCase() === 'design') {
+          if (textures?.front) {
+            // Make design mesh transparent to reveal body texture underneath
+            child.material = new THREE.MeshLambertMaterial({
+              transparent: true,
+              opacity: 0, // Completely transparent
+              visible: false, // Hide it entirely
+            });
+            console.log('🔥 Made design mesh transparent to show body texture');
+          } else {
+            // Default design mesh material
+            child.material = materials.body;
+          }
+          return; // Skip normal processing for design mesh
+        }
+
+        // 🔥 ULTIMATE TEST: Hardcode a texture for the body mesh
+        if (child.name.toLowerCase() === 'body') {
+          const texture = textureLoader.load('https://picsum.photos/200/200?random=1'); // Use external test image
+          texture.repeat.set(1, 1);
+          texture.offset.set(0, 0);
+
+          child.material = new THREE.MeshLambertMaterial({
+            map: texture,
+          });
+
+          console.log('🔥 HARDCODED texture applied to body');
+          return;
+        }
 
         // Apply materials based on identified mesh parts
         if (meshPart === 'front') {
@@ -485,6 +524,9 @@ interface Scene3DProps {
 }
 
 export default function Scene3D({ className = '', colors, textures, uvTextures, textureTransforms }: Scene3DProps) {
+  // 🔥 ULTIMATE TEST: Log received props immediately
+  console.log('🔥 RECEIVED PROPS:', { textures, textureTransforms });
+
   const [contextLost, setContextLost] = useState(false);
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
