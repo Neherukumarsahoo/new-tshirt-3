@@ -226,35 +226,25 @@ function TShirtModel({ modelPath = '/poloshirt2.glb', colors, textures, uvTextur
                 texture.rotation = (transform.rotation * Math.PI) / 180;
                 texture.center.set(0.5, 0.5);
 
-                const scaleX = Math.max(0.05, transform.scale / 120);
-                const scaleY = Math.max(0.05, transform.scale / 120);
+                // Use gentler scaling for better control
+                const scaleX = Math.max(0.05, transform.scale / 220);
+                const scaleY = Math.max(0.05, transform.scale / 220);
                 texture.repeat.set(scaleX, scaleY);
 
-                const offsetX = transform.position.x / 1500;
-                const offsetY = -transform.position.y / 1500;
+                // Use gentler offset scaling for smoother movement
+                const offsetX = transform.position.x / 800;
+                const offsetY = -transform.position.y / 800;
                 texture.offset.set(offsetX, offsetY);
 
                 console.log('Applying texture to front with url', textures.front);
                 console.log('Front transform', { scaleX, scaleY, offsetX, offsetY, rotation: transform.rotation });
               }
 
-              // 🔥 TEMPORARILY: Force visible texture settings for testing
-              texture.repeat.set(0.5, 0.5); // Fixed size
-              texture.offset.set(0, 0);      // Centered position
-              texture.rotation = 0;          // No rotation
-
-              // 🔥 FORCE VISIBILITY: Ensure decal draws on top
+              // Create material with proper transparency
               child.material = new THREE.MeshLambertMaterial({
                 map: texture,
                 transparent: true,
-                depthTest: true,
-                depthWrite: false, // do not write depth
-                polygonOffset: true, // push slightly toward camera
-                polygonOffsetFactor: -1, // small negative to render on top
               });
-
-              // Force renderOrder higher to ensure decal renders on top
-              child.renderOrder = 999;
 
               console.log('✅ Successfully applied texture to', meshPart, 'mesh:', child.name);
               child.material.needsUpdate = true;
@@ -288,35 +278,25 @@ function TShirtModel({ modelPath = '/poloshirt2.glb', colors, textures, uvTextur
                 texture.rotation = (transform.rotation * Math.PI) / 180;
                 texture.center.set(0.5, 0.5);
 
-                const scaleX = Math.max(0.05, transform.scale / 120);
-                const scaleY = Math.max(0.05, transform.scale / 120);
+                // Use gentler scaling for better control
+                const scaleX = Math.max(0.05, transform.scale / 220);
+                const scaleY = Math.max(0.05, transform.scale / 220);
                 texture.repeat.set(scaleX, scaleY);
 
-                const offsetX = transform.position.x / 1500;
-                const offsetY = -transform.position.y / 1500;
+                // Use gentler offset scaling for smoother movement
+                const offsetX = transform.position.x / 800;
+                const offsetY = -transform.position.y / 800;
                 texture.offset.set(offsetX, offsetY);
 
                 console.log('Applying texture to back with url', textures.back);
                 console.log('Back transform', { scaleX, scaleY, offsetX, offsetY, rotation: transform.rotation });
               }
 
-              // 🔥 TEMPORARILY: Force visible texture settings for testing
-              texture.repeat.set(0.5, 0.5); // Fixed size
-              texture.offset.set(0, 0);      // Centered position
-              texture.rotation = 0;          // No rotation
-
-              // 🔥 FORCE VISIBILITY: Ensure decal draws on top
+              // Create material with proper transparency
               child.material = new THREE.MeshLambertMaterial({
                 map: texture,
                 transparent: true,
-                depthTest: true,
-                depthWrite: false, // do not write depth
-                polygonOffset: true, // push slightly toward camera
-                polygonOffsetFactor: -1, // small negative to render on top
               });
-
-              // Force renderOrder higher to ensure decal renders on top
-              child.renderOrder = 999;
 
               console.log('✅ Successfully applied texture to', meshPart, 'mesh:', child.name);
               child.material.needsUpdate = true;
@@ -350,35 +330,25 @@ function TShirtModel({ modelPath = '/poloshirt2.glb', colors, textures, uvTextur
                 texture.rotation = (transform.rotation * Math.PI) / 180;
                 texture.center.set(0.5, 0.5);
 
-                const scaleX = Math.max(0.05, transform.scale / 120);
-                const scaleY = Math.max(0.05, transform.scale / 120);
+                // Use gentler scaling for better control
+                const scaleX = Math.max(0.05, transform.scale / 220);
+                const scaleY = Math.max(0.05, transform.scale / 220);
                 texture.repeat.set(scaleX, scaleY);
 
-                const offsetX = transform.position.x / 1500;
-                const offsetY = -transform.position.y / 1500;
+                // Use gentler offset scaling for smoother movement
+                const offsetX = transform.position.x / 800;
+                const offsetY = -transform.position.y / 800;
                 texture.offset.set(offsetX, offsetY);
 
                 console.log('Applying texture to leftSleeve with url', textures.leftSleeve);
                 console.log('Left Sleeve transform', { scaleX, scaleY, offsetX, offsetY, rotation: transform.rotation });
               }
 
-              // 🔥 TEMPORARILY: Force visible texture settings for testing
-              texture.repeat.set(0.5, 0.5); // Fixed size
-              texture.offset.set(0, 0);      // Centered position
-              texture.rotation = 0;          // No rotation
-
-              // 🔥 FORCE VISIBILITY: Ensure decal draws on top
+              // Create material with proper transparency
               child.material = new THREE.MeshLambertMaterial({
                 map: texture,
                 transparent: true,
-                depthTest: true,
-                depthWrite: false, // do not write depth
-                polygonOffset: true, // push slightly toward camera
-                polygonOffsetFactor: -1, // small negative to render on top
               });
-
-              // Force renderOrder higher to ensure decal renders on top
-              child.renderOrder = 999;
 
               console.log('✅ Successfully applied texture to', meshPart, 'mesh:', child.name);
               child.material.needsUpdate = true;
@@ -412,35 +382,25 @@ function TShirtModel({ modelPath = '/poloshirt2.glb', colors, textures, uvTextur
                 texture.rotation = (transform.rotation * Math.PI) / 180;
                 texture.center.set(0.5, 0.5);
 
-                const scaleX = Math.max(0.05, transform.scale / 120);
-                const scaleY = Math.max(0.05, transform.scale / 120);
+                // Use gentler scaling for better control
+                const scaleX = Math.max(0.05, transform.scale / 220);
+                const scaleY = Math.max(0.05, transform.scale / 220);
                 texture.repeat.set(scaleX, scaleY);
 
-                const offsetX = transform.position.x / 1500;
-                const offsetY = -transform.position.y / 1500;
+                // Use gentler offset scaling for smoother movement
+                const offsetX = transform.position.x / 800;
+                const offsetY = -transform.position.y / 800;
                 texture.offset.set(offsetX, offsetY);
 
                 console.log('Applying texture to rightSleeve with url', textures.rightSleeve);
                 console.log('Right Sleeve transform', { scaleX, scaleY, offsetX, offsetY, rotation: transform.rotation });
               }
 
-              // 🔥 TEMPORARILY: Force visible texture settings for testing
-              texture.repeat.set(0.5, 0.5); // Fixed size
-              texture.offset.set(0, 0);      // Centered position
-              texture.rotation = 0;          // No rotation
-
-              // 🔥 FORCE VISIBILITY: Ensure decal draws on top
+              // Create material with proper transparency
               child.material = new THREE.MeshLambertMaterial({
                 map: texture,
                 transparent: true,
-                depthTest: true,
-                depthWrite: false, // do not write depth
-                polygonOffset: true, // push slightly toward camera
-                polygonOffsetFactor: -1, // small negative to render on top
               });
-
-              // Force renderOrder higher to ensure decal renders on top
-              child.renderOrder = 999;
 
               console.log('✅ Successfully applied texture to', meshPart, 'mesh:', child.name);
               child.material.needsUpdate = true;
@@ -471,7 +431,7 @@ function TShirtModel({ modelPath = '/poloshirt2.glb', colors, textures, uvTextur
 
   return (
     <group ref={modelRef}>
-      <primitive object={scene} scale={[1.7, 1.7, 1.7]} position={[0, -1, 0]} />
+      <primitive object={scene} scale={[1.3, 1.3, 1.3]} position={[0, -0.6, 0]} />
     </group>
   );
 }
@@ -616,7 +576,7 @@ export default function Scene3D({ className = '', colors, textures, uvTextures, 
     <div className={`w-full h-full ${className} relative`}>
       <Canvas
         ref={canvasRef}
-        camera={{ position: [0, 0, 5], fov: 50 }}
+        camera={{ position: [0, 0, 6.5], fov: 45 }}
         style={{ background: 'transparent' }}
         gl={{
           antialias: true,

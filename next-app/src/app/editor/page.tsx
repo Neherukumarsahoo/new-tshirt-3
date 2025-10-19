@@ -28,41 +28,8 @@ interface CropTransform {
 
 type ContainerType = 'front' | 'back' | 'leftSleeve' | 'rightSleeve';
 
-// Add this function at the top of editor/page.tsx
-async function applyZoneMask(imageUrl: string, zone: ContainerType): Promise<string> {
-  const maskMap = {
-    front: '/masks/front_mask.png',
-    back: '/masks/back_mask.png',
-    leftSleeve: '/masks/left_sleeve_mask.png',
-    rightSleeve: '/masks/right_sleeve_mask.png',
-  };
-
-  try {
-    const [img, mask] = await Promise.all([
-      loadImageAsync(imageUrl),
-      loadImageAsync(maskMap[zone])
-    ]);
-
-    const canvas = document.createElement('canvas');
-    canvas.width = 1024;
-    canvas.height = 1024;
-    const ctx = canvas.getContext('2d')!;
-
-    // Draw image
-    ctx.drawImage(img, 0, 0, 1024, 1024);
-
-    // Apply mask
-    ctx.globalCompositeOperation = 'destination-in';
-    ctx.drawImage(mask, 0, 0, 1024, 1024);
-
-    return canvas.toDataURL('image/png');
-  } catch (error) {
-    console.warn('Masking failed, using original:', error);
-    return imageUrl;
-  }
-}
-
-function loadImageAsync(src: string): Promise<HTMLImageElement> {
+// 🔥 MOCKEY.AI UV ZONE MASKING SYSTEM
+async function loadImage(src: string): Promise<HTMLImageElement> {
   return new Promise((resolve, reject) => {
     const img = new Image();
     img.crossOrigin = 'anonymous';
@@ -71,6 +38,37 @@ function loadImageAsync(src: string): Promise<HTMLImageElement> {
     img.src = src;
   });
 }
+
+async function applyMask(imageUrl: string, maskUrl: string): Promise<string> {
+  try {
+    const [img, mask] = await Promise.all([loadImage(imageUrl), loadImage(maskUrl)]);
+
+    const size = 1024;
+    const canvas = document.createElement('canvas');
+    canvas.width = size;
+    canvas.height = size;
+    const ctx = canvas.getContext('2d')!;
+
+    // Draw the uploaded image
+    ctx.drawImage(img, 0, 0, size, size);
+
+    // Apply the zone mask (white areas = visible, black areas = transparent)
+    ctx.globalCompositeOperation = 'destination-in';
+    ctx.drawImage(mask, 0, 0, size, size);
+
+    return canvas.toDataURL('image/png');
+  } catch (error) {
+    console.warn('❌ Zone masking failed, using original image:', error);
+    return imageUrl; // Fallback to original if masking fails
+  }
+}
+
+const maskByZone = {
+  front: '/masks/front.png',
+  back: '/masks/back.png',
+  leftSleeve: '/masks/leftSleeve.png',
+  rightSleeve: '/masks/rightSleeve.png',
+};
 
 // Container Image Control Component Props
 interface ContainerImageControlProps {
@@ -315,7 +313,7 @@ function InteractiveContainer({
             console.log('🔥 BEFORE setContainerImages:', containerImages);
 
             // Apply zone mask before placing
-            applyZoneMask(currentImage, activeContainer).then(maskedImage => {
+            applyMask(currentImage, maskByZone[activeContainer]).then((maskedImage: string) => {
               // Place masked image in the active container (Mockey.ai style)
               setContainerImages(prev => {
                 const next = { ...prev, [activeContainer]: maskedImage };
@@ -1543,17 +1541,15 @@ export default function EditorPage() {
               ribbedHem: tshirtColor,
             }}
             textures={{
-              // 🔥 TEMPORARILY: Hardcode a texture to test rendering pipeline
-              front: containerImages.front || 'https://picsum.photos/200/200?random=1', // Use any small test image
-              // Show placed container images (preview temporarily disabled for debugging)
+              // Show placed container images
               ...(containerImages.front && { front: containerImages.front }),
               ...(containerImages.back && { back: containerImages.back }),
               ...(containerImages.leftSleeve && { leftSleeve: containerImages.leftSleeve }),
               ...(containerImages.rightSleeve && { rightSleeve: containerImages.rightSleeve }),
-              // Preview temporarily disabled for debugging - will re-enable after confirming placed images work
-              // ...(previewState.showPreview && previewState.previewImage && {
-              //   [previewState.previewContainer!]: previewState.previewImage
-              // }),
+              // Show preview when hovering over container with image
+              ...(previewState.showPreview && previewState.previewImage && {
+                [previewState.previewContainer!]: previewState.previewImage
+              }),
             }}
             textureTransforms={{
               // Show transforms for placed images - using same divisors as Scene3D
