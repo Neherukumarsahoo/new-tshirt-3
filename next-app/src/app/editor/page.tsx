@@ -28,6 +28,50 @@ interface CropTransform {
 
 type ContainerType = 'front' | 'back' | 'leftSleeve' | 'rightSleeve';
 
+// Add this function at the top of editor/page.tsx
+async function applyZoneMask(imageUrl: string, zone: ContainerType): Promise<string> {
+  const maskMap = {
+    front: '/masks/front_mask.png',
+    back: '/masks/back_mask.png',
+    leftSleeve: '/masks/left_sleeve_mask.png',
+    rightSleeve: '/masks/right_sleeve_mask.png',
+  };
+
+  try {
+    const [img, mask] = await Promise.all([
+      loadImageAsync(imageUrl),
+      loadImageAsync(maskMap[zone])
+    ]);
+
+    const canvas = document.createElement('canvas');
+    canvas.width = 1024;
+    canvas.height = 1024;
+    const ctx = canvas.getContext('2d')!;
+
+    // Draw image
+    ctx.drawImage(img, 0, 0, 1024, 1024);
+
+    // Apply mask
+    ctx.globalCompositeOperation = 'destination-in';
+    ctx.drawImage(mask, 0, 0, 1024, 1024);
+
+    return canvas.toDataURL('image/png');
+  } catch (error) {
+    console.warn('Masking failed, using original:', error);
+    return imageUrl;
+  }
+}
+
+function loadImageAsync(src: string): Promise<HTMLImageElement> {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    img.onload = () => resolve(img);
+    img.onerror = reject;
+    img.src = src;
+  });
+}
+
 // Container Image Control Component Props
 interface ContainerImageControlProps {
   container: ContainerType;
@@ -270,24 +314,50 @@ function InteractiveContainer({
 
             console.log('🔥 BEFORE setContainerImages:', containerImages);
 
-            // Place image in the active container (Mockey.ai style)
-            setContainerImages(prev => {
-              const next = { ...prev, [activeContainer]: currentImage };
-              console.log('🔥 AFTER setContainerImages:', next);
-              return next;
-            });
+            // Apply zone mask before placing
+            applyZoneMask(currentImage, activeContainer).then(maskedImage => {
+              // Place masked image in the active container (Mockey.ai style)
+              setContainerImages(prev => {
+                const next = { ...prev, [activeContainer]: maskedImage };
+                console.log('🔥 AFTER setContainerImages (with mask):', next);
+                return next;
+              });
 
-            // Copy current image transforms to the active container
-            setContainerTransforms(prev => {
-              const newState = {
-                ...prev,
-                [activeContainer]: {
-                  ...prev[activeContainer],
-                  ...imageTransforms
-                }
-              };
-              console.log('🔥 AFTER setContainerTransforms:', newState);
-              return newState;
+              // Copy current image transforms to the active container
+              setContainerTransforms(prev => {
+                const newState = {
+                  ...prev,
+                  [activeContainer]: {
+                    ...prev[activeContainer],
+                    ...imageTransforms
+                  }
+                };
+                console.log('🔥 AFTER setContainerTransforms:', newState);
+                return newState;
+              });
+
+              console.log('🔥 Placed masked image on', activeContainer);
+            }).catch(error => {
+              console.warn('Masking failed, using original image:', error);
+
+              // Place original image if masking fails
+              setContainerImages(prev => {
+                const next = { ...prev, [activeContainer]: currentImage };
+                console.log('🔥 AFTER setContainerImages (original):', next);
+                return next;
+              });
+
+              setContainerTransforms(prev => {
+                const newState = {
+                  ...prev,
+                  [activeContainer]: {
+                    ...prev[activeContainer],
+                    ...imageTransforms
+                  }
+                };
+                console.log('🔥 AFTER setContainerTransforms (original):', newState);
+                return newState;
+              });
             });
 
             // Clear the global image after placing

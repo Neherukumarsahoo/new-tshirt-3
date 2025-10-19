@@ -151,17 +151,53 @@ function TShirtModel({ modelPath = '/poloshirt2.glb', colors, textures, uvTextur
           return; // Skip normal processing for design mesh
         }
 
-        // 🔥 ULTIMATE TEST: Hardcode a texture for the body mesh
+        // Apply texture based on which container has an image
         if (child.name.toLowerCase() === 'body') {
-          const texture = textureLoader.load('https://picsum.photos/200/200?random=1'); // Use external test image
-          texture.repeat.set(1, 1);
-          texture.offset.set(0, 0);
+          // Apply texture based on which container has an image
+          let textureUrl = null;
+          let transforms = null;
 
-          child.material = new THREE.MeshLambertMaterial({
-            map: texture,
-          });
+          if (textures?.front) {
+            textureUrl = textures.front;
+            transforms = textureTransforms?.front;
+            console.log('🔥 Applying FRONT texture to body');
+          } else if (textures?.back) {
+            textureUrl = textures.back;
+            transforms = textureTransforms?.back;
+            console.log('🔥 Applying BACK texture to body');
+          } else if (textures?.leftSleeve) {
+            textureUrl = textures.leftSleeve;
+            transforms = textureTransforms?.leftSleeve;
+            console.log('🔥 Applying LEFT SLEEVE texture to body');
+          } else if (textures?.rightSleeve) {
+            textureUrl = textures.rightSleeve;
+            transforms = textureTransforms?.rightSleeve;
+            console.log('🔥 Applying RIGHT SLEEVE texture to body');
+          }
 
-          console.log('🔥 HARDCODED texture applied to body');
+          if (textureUrl) {
+            const texture = textureLoader.load(
+              textureUrl,
+              () => console.log('✅ Container texture loaded:', textureUrl),
+              undefined,
+              (err) => console.error('❌ Container texture failed:', err)
+            );
+
+            texture.repeat.set(0.5, 0.5);
+            texture.offset.set(0, 0);
+            texture.rotation = 0;
+
+            child.material = new THREE.MeshLambertMaterial({
+              map: texture,
+              transparent: true,
+            });
+
+            console.log('✅ Applied container-specific texture to body');
+            child.material.needsUpdate = true;
+          } else {
+            // No texture - just base color
+            child.material = materials.body;
+          }
           return;
         }
 
