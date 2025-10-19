@@ -305,28 +305,28 @@ function InteractiveContainer({
               [type]: false
             }));
 
-            if (!currentImage || !activeContainer) {
-              console.warn('Drop ignored because currentImage or activeContainer missing');
+            if (!currentImage) {
+              console.warn('Drop ignored because currentImage missing');
               return;
             }
 
             console.log('🔥 BEFORE setContainerImages:', containerImages);
 
-            // Apply zone mask before placing
-            applyMask(currentImage, maskByZone[activeContainer]).then((maskedImage: string) => {
-              // Place masked image in the active container (Mockey.ai style)
+            // 🔥 FIX: Use 'type' instead of 'activeContainer'
+            applyMask(currentImage, maskByZone[type]).then((maskedImage: string) => {
+              // Place masked image in the container (Mockey.ai style)
               setContainerImages(prev => {
-                const next = { ...prev, [activeContainer]: maskedImage };
+                const next = { ...prev, [type]: maskedImage };  // Use 'type' not 'activeContainer'
                 console.log('🔥 AFTER setContainerImages (with mask):', next);
                 return next;
               });
 
-              // Copy current image transforms to the active container
+              // Copy current image transforms to the container
               setContainerTransforms(prev => {
                 const newState = {
                   ...prev,
-                  [activeContainer]: {
-                    ...prev[activeContainer],
+                  [type]: {  // Use 'type' not 'activeContainer'
+                    ...prev[type],
                     ...imageTransforms
                   }
                 };
@@ -334,13 +334,13 @@ function InteractiveContainer({
                 return newState;
               });
 
-              console.log('🔥 Placed masked image on', activeContainer);
+              console.log('🔥 Placed masked image on', type);  // Use 'type'
             }).catch(error => {
               console.warn('Masking failed, using original image:', error);
 
               // Place original image if masking fails
               setContainerImages(prev => {
-                const next = { ...prev, [activeContainer]: currentImage };
+                const next = { ...prev, [type]: currentImage };  // Use 'type'
                 console.log('🔥 AFTER setContainerImages (original):', next);
                 return next;
               });
@@ -348,8 +348,8 @@ function InteractiveContainer({
               setContainerTransforms(prev => {
                 const newState = {
                   ...prev,
-                  [activeContainer]: {
-                    ...prev[activeContainer],
+                  [type]: {  // Use 'type'
+                    ...prev[type],
                     ...imageTransforms
                   }
                 };
