@@ -211,24 +211,6 @@ function TShirtModel({ modelPath = '/poloshirt2.glb', colors, textures, uvTextur
         }
       }
     });
-
-    // 🚨 ULTIMATE DEBUG: Hardcode test texture to prove system works
-    modelRef.current.traverse((child) => {
-      if (child instanceof THREE.Mesh && child.name.toLowerCase() === 'body') {
-        console.log('🔥 HARDCODED TEST: Applying front mask to body');
-        const texture = textureLoader.load('/masks/front.png');
-        texture.repeat.set(1, 1);
-        texture.offset.set(0, 0);
-
-        child.material = new THREE.MeshLambertMaterial({
-          map: texture,
-          transparent: true,
-        });
-
-        console.log('🔥 HARDCODED TEST: Front mask applied to body');
-        child.material.needsUpdate = true;
-      }
-    });
   }, [materials, textures, textureTransforms, textureLoader, colors]);
 
   return (
