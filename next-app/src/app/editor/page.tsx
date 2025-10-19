@@ -1458,6 +1458,8 @@ export default function EditorPage() {
               ribbedHem: tshirtColor,
             }}
             textures={{
+              // 🔥 TEMPORARILY: Hardcode a texture to test rendering pipeline
+              front: containerImages.front || 'https://picsum.photos/200/200?random=1', // Use any small test image
               // Show placed container images (preview temporarily disabled for debugging)
               ...(containerImages.front && { front: containerImages.front }),
               ...(containerImages.back && { back: containerImages.back }),

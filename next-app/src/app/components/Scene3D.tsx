@@ -109,22 +109,10 @@ function TShirtModel({ modelPath = '/poloshirt2.glb', colors, textures, uvTextur
       if (child instanceof THREE.Mesh) {
         const meshName = child.name.toLowerCase();
 
-        // Mesh name mapping function for your specific GLB
+        // 🔥 UNIVERSAL FALLBACK: Apply front texture to ALL meshes for testing
         const getMeshPart = (name: string): 'front' | 'back' | 'leftSleeve' | 'rightSleeve' | null => {
-          const n = name.toLowerCase();
-
-          // Based on your actual mesh names from console output
-          if (n === 'body') return 'front'; // Main body mesh - assuming it represents front
-          if (n === 'design') return 'front'; // Design layer - also front
-          if (n === 'cuff') return 'leftSleeve'; // Cuff might include sleeves
-
-          // Fallback patterns for other potential mesh names
-          if (n.includes('front') || n.includes('chest') || n.includes('polo_front') || n.includes('torso_f')) return 'front';
-          if (n.includes('back') || n.includes('polo_back') || n.includes('torso_b')) return 'back';
-          if ((n.includes('left') || n.includes('_l') || n.endsWith('_l')) && (n.includes('sleeve') || n.includes('arm'))) return 'leftSleeve';
-          if ((n.includes('right') || n.includes('_r') || n.endsWith('_r')) && (n.includes('sleeve') || n.includes('arm'))) return 'rightSleeve';
-
-          return null;
+          // 🔥 UNIVERSAL FALLBACK: Apply front texture to ALL meshes for testing
+          return 'front';
         };
 
         const meshPart = getMeshPart(child.name);
@@ -164,13 +152,20 @@ function TShirtModel({ modelPath = '/poloshirt2.glb', colors, textures, uvTextur
                 console.log('Front transform', { scaleX, scaleY, offsetX, offsetY, rotation: transform.rotation });
               }
 
+              // 🔥 TEMPORARILY: Force visible texture settings for testing
+              texture.repeat.set(0.5, 0.5); // Fixed size
+              texture.offset.set(0, 0);      // Centered position
+              texture.rotation = 0;          // No rotation
+
               // Create material that preserves fabric color but adds texture
               child.material = new THREE.MeshLambertMaterial({
                 map: texture,
                 transparent: true,
+                // 🔥 TEMPORARILY: Remove color tinting to see pure texture
+                // color: new THREE.Color(colors.body), // Comment this out for testing
               });
-              // Temporarily disable base color to test if texture is visible
-              // child.material.color = new THREE.Color(colors.body);
+
+              console.log('✅ Successfully applied texture to', meshPart, 'mesh:', child.name);
               child.material.needsUpdate = true;
             } catch (error) {
               console.warn('Failed to apply front texture:', error);
@@ -209,12 +204,19 @@ function TShirtModel({ modelPath = '/poloshirt2.glb', colors, textures, uvTextur
                 console.log('Back transform', { scaleX, scaleY, offsetX, offsetY, rotation: transform.rotation });
               }
 
+              // 🔥 TEMPORARILY: Force visible texture settings for testing
+              texture.repeat.set(0.5, 0.5); // Fixed size
+              texture.offset.set(0, 0);      // Centered position
+              texture.rotation = 0;          // No rotation
+
               child.material = new THREE.MeshLambertMaterial({
                 map: texture,
                 transparent: true,
+                // 🔥 TEMPORARILY: Remove color tinting to see pure texture
+                // color: new THREE.Color(colors.body), // Comment this out for testing
               });
-              // Temporarily disable base color to test if texture is visible
-              // child.material.color = new THREE.Color(colors.body);
+
+              console.log('✅ Successfully applied texture to', meshPart, 'mesh:', child.name);
               child.material.needsUpdate = true;
             } catch (error) {
               console.warn('Failed to apply back texture:', error);
@@ -253,12 +255,19 @@ function TShirtModel({ modelPath = '/poloshirt2.glb', colors, textures, uvTextur
                 console.log('Left Sleeve transform', { scaleX, scaleY, offsetX, offsetY, rotation: transform.rotation });
               }
 
+              // 🔥 TEMPORARILY: Force visible texture settings for testing
+              texture.repeat.set(0.5, 0.5); // Fixed size
+              texture.offset.set(0, 0);      // Centered position
+              texture.rotation = 0;          // No rotation
+
               child.material = new THREE.MeshLambertMaterial({
                 map: texture,
                 transparent: true,
+                // 🔥 TEMPORARILY: Remove color tinting to see pure texture
+                // color: new THREE.Color(colors.body), // Comment this out for testing
               });
-              // Temporarily disable base color to test if texture is visible
-              // child.material.color = new THREE.Color(colors.body);
+
+              console.log('✅ Successfully applied texture to', meshPart, 'mesh:', child.name);
               child.material.needsUpdate = true;
             } catch (error) {
               console.warn('Failed to apply left sleeve texture:', error);
@@ -297,12 +306,19 @@ function TShirtModel({ modelPath = '/poloshirt2.glb', colors, textures, uvTextur
                 console.log('Right Sleeve transform', { scaleX, scaleY, offsetX, offsetY, rotation: transform.rotation });
               }
 
+              // 🔥 TEMPORARILY: Force visible texture settings for testing
+              texture.repeat.set(0.5, 0.5); // Fixed size
+              texture.offset.set(0, 0);      // Centered position
+              texture.rotation = 0;          // No rotation
+
               child.material = new THREE.MeshLambertMaterial({
                 map: texture,
                 transparent: true,
+                // 🔥 TEMPORARILY: Remove color tinting to see pure texture
+                // color: new THREE.Color(colors.body), // Comment this out for testing
               });
-              // Temporarily disable base color to test if texture is visible
-              // child.material.color = new THREE.Color(colors.body);
+
+              console.log('✅ Successfully applied texture to', meshPart, 'mesh:', child.name);
               child.material.needsUpdate = true;
             } catch (error) {
               console.warn('Failed to apply right sleeve texture:', error);
