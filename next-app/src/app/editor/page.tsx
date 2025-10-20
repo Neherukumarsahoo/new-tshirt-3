@@ -711,32 +711,9 @@ export default function EditorPage() {
       // Also add to uploaded images list
       setUploadedImages(prev => [...prev, url]);
 
-      // If a container is active, assign the uploaded image directly to it
-      if (activeContainer) {
-        setContainerImages(prev => ({
-          ...prev,
-          [activeContainer]: url
-        }));
-
-        // Set default transforms for the active container
-        setContainerTransforms(prev => ({
-          ...prev,
-          [activeContainer]: {
-            x: 0,
-            y: 0,
-            scale: activeContainer === 'leftSleeve' || activeContainer === 'rightSleeve' ? 50 : 60,
-            rotation: 0,
-            cropLeft: 0,
-            cropRight: 0,
-            cropTop: 0,
-            cropBottom: 0,
-          }
-        }));
-
-        // Clear current image since it's now placed
-        setCurrentImage(null);
-        setActiveContainer(null);
-      }
+      // Don't auto-assign - let user drag to containers manually
+      // This preserves currentImage for dragging and hover preview
+      console.log('📁 Image uploaded, ready for placement:', url);
     }
   };
 
@@ -1530,6 +1507,9 @@ export default function EditorPage() {
         </div>
 
         <div className="flex-1 relative bg-gradient-to-br from-gray-50 to-gray-100">
+          {/* Debug logs for value flow verification */}
+          {(() => { console.log('🟣 containerImages', containerImages); console.log('🟣 previewState', previewState); return null; })()}
+
           <Scene3D
             className="absolute inset-0"
             colors={{
@@ -1547,8 +1527,8 @@ export default function EditorPage() {
               ...(containerImages.leftSleeve && { leftSleeve: containerImages.leftSleeve }),
               ...(containerImages.rightSleeve && { rightSleeve: containerImages.rightSleeve }),
               // Show preview when hovering over container with image
-              ...(previewState.showPreview && previewState.previewImage && {
-                [previewState.previewContainer!]: previewState.previewImage
+              ...(previewState.showPreview && previewState.previewImage && previewState.previewContainer && {
+                [previewState.previewContainer]: previewState.previewImage
               }),
             }}
             textureTransforms={{
