@@ -245,6 +245,7 @@ function InteractiveContainer({
             height: `${height}px`,
             border: '2px dashed',
           }}
+          data-drop-part={type}
           onDragOver={(e) => {
             e.preventDefault();
             setActiveContainer(type);

@@ -5,6 +5,39 @@ import dynamic from 'next/dynamic';
 import Sidebar from './components/Sidebar';
 import BottomControls from './components/BottomControls';
 
+interface BackgroundSettings {
+  type: 'color' | 'image' | 'gradient';
+  color?: string;
+  image?: string;
+  gradient?: {
+    type: 'linear' | 'radial';
+    colors: string[];
+    direction?: number;
+  };
+}
+
+interface MotionSettings {
+  autoRotate: boolean;
+  rotationSpeed: number;
+  rotationDirection: 'clockwise' | 'counterclockwise';
+  floating: boolean;
+  floatingSpeed: number;
+  floatingAmplitude: number;
+  cameraAnimation: boolean;
+  cameraSpeed: number;
+  animationPreset: 'none' | 'subtle' | 'dynamic' | 'presentation';
+}
+
+interface TextureSettings {
+  fabricType: 'cotton' | 'polyester' | 'wool' | 'linen' | 'silk' | 'denim';
+  finish: 'matte' | 'glossy' | 'metallic' | 'pearlescent';
+  pattern: 'none' | 'subtle' | 'bold' | 'geometric' | 'floral';
+  roughness: number;
+  metallic: number;
+  normalStrength: number;
+  preset: 'none' | 'casual' | 'formal' | 'sporty' | 'luxury';
+}
+
 // Dynamically import Scene3D to avoid SSR issues with Three.js
 const Scene3D = dynamic(() => import('./components/Scene3D'), {
   ssr: false,
@@ -27,6 +60,36 @@ export default function Home() {
     buttons: '#ffffff',
     ribbedHem: '#ffffff',
   });
+
+  const [background, setBackground] = useState<BackgroundSettings>({
+    type: 'color',
+    color: '#f8fafc'
+  });
+
+  const [motion, setMotion] = useState<MotionSettings>({
+    autoRotate: false,
+    rotationSpeed: 1,
+    rotationDirection: 'clockwise',
+    floating: false,
+    floatingSpeed: 1,
+    floatingAmplitude: 0.1,
+    cameraAnimation: false,
+    cameraSpeed: 1,
+    animationPreset: 'none'
+  });
+
+  const [texture, setTexture] = useState<TextureSettings>({
+    fabricType: 'cotton',
+    finish: 'matte',
+    pattern: 'none',
+    roughness: 0.5,
+    metallic: 0.0,
+    normalStrength: 0.5,
+    preset: 'none'
+  });
+
+  const [scale, setScale] = useState(100);
+  const [aspectRatio, setAspectRatio] = useState('16:9');
 
   // Load saved design from localStorage on component mount
   useEffect(() => {
@@ -60,7 +123,13 @@ export default function Home() {
         <Sidebar
           className="flex-shrink-0"
           colors={colors}
+          background={background}
+          motion={motion}
+          texture={texture}
           onColorChange={handleColorChange}
+          onBackgroundChange={setBackground}
+          onMotionChange={setMotion}
+          onTextureChange={setTexture}
         />
 
         {/* 3D Viewer Area */}
@@ -109,11 +178,23 @@ export default function Home() {
             <Scene3D
               className="absolute inset-0"
               colors={colors}
+              background={background}
+              motion={motion}
+              texture={texture}
             />
           </div>
 
           {/* Bottom Controls */}
-          <BottomControls />
+          <BottomControls
+            scale={scale}
+            aspectRatio={aspectRatio}
+            onScaleChange={setScale}
+            onAspectRatioChange={setAspectRatio}
+            onReset={() => {
+              setScale(100);
+              setAspectRatio('16:9');
+            }}
+          />
         </div>
       </div>
     </div>

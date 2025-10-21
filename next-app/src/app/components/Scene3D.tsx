@@ -1,7 +1,7 @@
 'use client';
 
 import React, { Suspense } from 'react';
-import { Canvas, useThree } from '@react-three/fiber';
+import { Canvas, useThree, useFrame } from '@react-three/fiber';
 import { OrbitControls, useGLTF } from '@react-three/drei';
 import { useRef, useState, useEffect, useMemo } from 'react';
 import * as THREE from 'three';
@@ -49,7 +49,7 @@ interface TShirtModelProps {
   };
 }
 
-function TShirtModel({ modelPath = '/poloshirt2.glb', colors, textures, uvTextures, textureTransforms }: TShirtModelProps) {
+function TShirtModel({ modelPath = '/poloshirt3.glb', colors, textures, uvTextures, textureTransforms, scale }: TShirtModelProps & { scale?: number }) {
   const { scene } = useGLTF(modelPath);
   const { invalidate } = useThree(); // Get invalidate function to force re-render
   const modelRef = useRef<THREE.Group>(null);
@@ -318,12 +318,228 @@ function TShirtModel({ modelPath = '/poloshirt2.glb', colors, textures, uvTextur
 
   return (
     <group ref={modelRef}>
-      <primitive object={scene} scale={[1.3, 1.3, 1.3]} position={[0, -0.6, 0]} />
+      <primitive object={scene} scale={[1.3 * (scale || 1), 1.3 * (scale || 1), 1.3 * (scale || 1)]} position={[0, -0.6, 0]} />
     </group>
   );
 }
 
-function SceneContent({ colors, textures, uvTextures, textureTransforms }: { colors: TShirtModelProps['colors'], textures?: TShirtModelProps['textures'], uvTextures?: TShirtModelProps['uvTextures'], textureTransforms?: TShirtModelProps['textureTransforms'] }) {
+function BackgroundElement({ background }: { background?: BackgroundSettings }) {
+  const { scene } = useThree();
+  const backgroundRef = useRef<THREE.Mesh>(null);
+  const textureLoader = useMemo(() => new THREE.TextureLoader(), []);
+
+  useEffect(() => {
+    if (!backgroundRef.current || !background) return;
+
+    let material: THREE.Material;
+
+    switch (background.type) {
+      case 'color':
+        material = new THREE.MeshBasicMaterial({
+          color: background.color || '#f8fafc',
+          side: THREE.BackSide
+        });
+        break;
+
+      case 'image':
+        if (background.image) {
+          const texture = textureLoader.load(background.image);
+          texture.wrapS = THREE.RepeatWrapping;
+          texture.wrapT = THREE.RepeatWrapping;
+          material = new THREE.MeshBasicMaterial({
+            map: texture,
+            side: THREE.BackSide
+          });
+        } else {
+          material = new THREE.MeshBasicMaterial({
+            color: '#f8fafc',
+            side: THREE.BackSide
+          });
+        }
+        break;
+
+      case 'gradient':
+        if (background.gradient) {
+          // Create canvas for gradient texture
+          const canvas = document.createElement('canvas');
+          canvas.width = 512;
+          canvas.height = 512;
+          const ctx = canvas.getContext('2d')!;
+
+          if (background.gradient.type === 'linear') {
+            const gradient = ctx.createLinearGradient(
+              0, 0,
+              Math.cos((background.gradient.direction || 0) * Math.PI / 180) * 512,
+              Math.sin((background.gradient.direction || 0) * Math.PI / 180) * 512
+            );
+            background.gradient.colors.forEach((color, index) => {
+              gradient.addColorStop(index / (background.gradient.colors.length - 1), color);
+            });
+            ctx.fillStyle = gradient;
+            ctx.fillRect(0, 0, 512, 512);
+          } else {
+            const gradient = ctx.createRadialGradient(256, 256, 0, 256, 256, 256);
+            background.gradient.colors.forEach((color, index) => {
+              gradient.addColorStop(index / (background.gradient.colors.length - 1), color);
+            });
+            ctx.fillStyle = gradient;
+            ctx.fillRect(0, 0, 512, 512);
+          }
+
+          const gradientTexture = new THREE.CanvasTexture(canvas);
+          material = new THREE.MeshBasicMaterial({
+            map: gradientTexture,
+            side: THREE.BackSide
+          });
+        } else {
+          material = new THREE.MeshBasicMaterial({
+            color: '#f8fafc',
+            side: THREE.BackSide
+          });
+        }
+        break;
+
+      default:
+        material = new THREE.MeshBasicMaterial({
+          color: '#f8fafc',
+          side: THREE.BackSide
+        });
+    }
+
+    backgroundRef.current.material = material;
+  }, [background, textureLoader]);
+
+  return (
+    <mesh ref={backgroundRef} position={[0, 0, -5]}>
+      <sphereGeometry args={[10, 32, 32]} />
+    </mesh>
+  );
+}
+
+function AnimatedTShirt({ colors, textures, uvTextures, textureTransforms, motion, scale }: {
+  colors: TShirtModelProps['colors'],
+  textures?: TShirtModelProps['textures'],
+  uvTextures?: TShirtModelProps['uvTextures'],
+  textureTransforms?: TShirtModelProps['textureTransforms'],
+  motion?: MotionSettings,
+  scale?: number
+}) {
+  const groupRef = useRef<THREE.Group>(null);
+
+  // Debug motion props
+  useEffect(() => {
+    console.log('🎬 AnimatedTShirt received motion:', motion);
+  }, [motion]);
+
+  useFrame((state) => {
+    if (!groupRef.current) return;
+
+    const time = state.clock.getElapsedTime();
+
+    // Auto rotation - only if enabled
+    if (motion?.autoRotate) {
+      const rotationSpeed = motion.rotationSpeed * 0.01; // Increased for visibility
+      const direction = motion.rotationDirection === 'clockwise' ? 1 : -1;
+      groupRef.current.rotation.y += rotationSpeed * direction;
+      console.log('🔄 Rotating:', { speed: rotationSpeed, direction, currentRotation: groupRef.current.rotation.y });
+    }
+
+    // Floating animation - only if enabled
+    if (motion?.floating) {
+      const floatingSpeed = motion.floatingSpeed * 0.03;
+      const floatingAmplitude = motion.floatingAmplitude;
+      groupRef.current.position.y = Math.sin(time * floatingSpeed) * floatingAmplitude;
+      console.log('🌊 Floating:', { time, floatingSpeed, amplitude: floatingAmplitude, positionY: groupRef.current.position.y });
+    }
+  });
+
+  return (
+    <group ref={groupRef}>
+      <TShirtModel colors={colors} textures={textures} uvTextures={uvTextures} textureTransforms={textureTransforms} scale={scale} />
+    </group>
+  );
+}
+
+function AnimatedCamera({ motion }: { motion?: MotionSettings }) {
+  const { camera } = useThree();
+  const initialPosition = useRef(new THREE.Vector3());
+  const initialLookAt = useRef(new THREE.Vector3());
+
+  // Debug motion props
+  useEffect(() => {
+    console.log('📷 AnimatedCamera received motion:', motion);
+  }, [motion]);
+
+  useEffect(() => {
+    if (camera) {
+      initialPosition.current.copy(camera.position);
+      initialLookAt.current.set(0, 0, 0); // Looking at the center
+    }
+  }, [camera]);
+
+  useFrame((state) => {
+    if (!motion?.cameraAnimation || !camera) return;
+
+    const time = state.clock.getElapsedTime();
+    const radius = 8;
+    const speed = motion.cameraSpeed * 0.5; // Increased for visibility
+
+    // Circular camera movement
+    camera.position.x = Math.cos(time * speed) * radius;
+    camera.position.z = Math.sin(time * speed) * radius;
+    camera.position.y = Math.sin(time * speed * 0.3) * 1.5 + 2; // Reduced vertical movement
+
+    camera.lookAt(0, 0, 0);
+
+    console.log('📷 Camera animating:', {
+      time,
+      speed,
+      position: { x: camera.position.x, y: camera.position.y, z: camera.position.z }
+    });
+  });
+
+  return null;
+}
+
+function SceneContent({ colors, background, motion, texture, scale, aspectRatio, textures, uvTextures, textureTransforms }: {
+  colors: TShirtModelProps['colors'],
+  background?: BackgroundSettings,
+  motion?: MotionSettings,
+  texture?: TextureSettings,
+  scale?: number,
+  aspectRatio?: string,
+  textures?: TShirtModelProps['textures'],
+  uvTextures?: TShirtModelProps['uvTextures'],
+  textureTransforms?: TShirtModelProps['textureTransforms']
+}) {
+  // Debug motion props in SceneContent
+  useEffect(() => {
+    console.log('🎭 SceneContent received motion:', motion);
+    console.log('📏 SceneContent received scale:', scale);
+    console.log('📐 SceneContent received aspectRatio:', aspectRatio);
+  }, [motion, scale, aspectRatio]);
+
+  // Calculate scale factor (25-200 range becomes 0.25-2.0)
+  const scaleFactor = (scale || 100) / 100;
+
+  // Calculate aspect ratio dimensions
+  const getAspectRatioDimensions = (ratio: string) => {
+    switch (ratio) {
+      case '16:9':
+        return { width: 16, height: 9 };
+      case '4:3':
+        return { width: 4, height: 3 };
+      case '1:1':
+        return { width: 1, height: 1 };
+      case '9:16':
+        return { width: 9, height: 16 };
+      default:
+        return { width: 16, height: 9 };
+    }
+  };
+
+  const { width, height } = getAspectRatioDimensions(aspectRatio || '16:9');
+
   return (
     <>
       {/* Enhanced lighting setup for better 3D appearance */}
@@ -341,8 +557,8 @@ function SceneContent({ colors, textures, uvTextures, textureTransforms }: { col
       />
       <pointLight position={[0, 2, 3]} intensity={0.5} />
 
-      {/* Background environment */}
-      <color attach="background" args={['#f8fafc']} />
+      {/* 3D Background Element */}
+      <BackgroundElement background={background} />
 
       {/* Ground plane for better depth perception */}
       <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -1.5, 0]} receiveShadow>
@@ -350,17 +566,26 @@ function SceneContent({ colors, textures, uvTextures, textureTransforms }: { col
         <shadowMaterial transparent opacity={0.1} />
       </mesh>
 
-      <TShirtModel colors={colors} textures={textures} uvTextures={uvTextures} textureTransforms={textureTransforms} />
+      <AnimatedTShirt
+        colors={colors}
+        textures={textures}
+        uvTextures={uvTextures}
+        textureTransforms={textureTransforms}
+        motion={motion}
+        scale={scaleFactor}
+      />
+
+      <AnimatedCamera motion={motion} />
 
       <OrbitControls
-        enablePan={true}
+        enablePan={!motion?.cameraAnimation}
         enableZoom={true}
-        enableRotate={true}
+        enableRotate={!motion?.autoRotate && !motion?.cameraAnimation}
         minDistance={2}
         maxDistance={8}
         maxPolarAngle={Math.PI * 0.8}
         minPolarAngle={Math.PI * 0.2}
-        autoRotate={false}
+        autoRotate={false} // We'll handle rotation manually in AnimatedTShirt
         dampingFactor={0.05}
         enableDamping={true}
       />
@@ -376,6 +601,39 @@ function LoadingFallback() {
   );
 }
 
+interface BackgroundSettings {
+  type: 'color' | 'image' | 'gradient';
+  color?: string;
+  image?: string;
+  gradient?: {
+    type: 'linear' | 'radial';
+    colors: string[];
+    direction?: number;
+  };
+}
+
+interface MotionSettings {
+  autoRotate: boolean;
+  rotationSpeed: number;
+  rotationDirection: 'clockwise' | 'counterclockwise';
+  floating: boolean;
+  floatingSpeed: number;
+  floatingAmplitude: number;
+  cameraAnimation: boolean;
+  cameraSpeed: number;
+  animationPreset: 'none' | 'subtle' | 'dynamic' | 'presentation';
+}
+
+interface TextureSettings {
+  fabricType: 'cotton' | 'polyester' | 'wool' | 'linen' | 'silk' | 'denim';
+  finish: 'matte' | 'glossy' | 'metallic' | 'pearlescent';
+  pattern: 'none' | 'subtle' | 'bold' | 'geometric' | 'floral';
+  roughness: number;
+  metallic: number;
+  normalStrength: number;
+  preset: 'none' | 'casual' | 'formal' | 'sporty' | 'luxury';
+}
+
 interface Scene3DProps {
   className?: string;
   colors: {
@@ -386,6 +644,11 @@ interface Scene3DProps {
     buttons: string;
     ribbedHem: string;
   };
+  background?: BackgroundSettings;
+  motion?: MotionSettings;
+  texture?: TextureSettings;
+  scale?: number;
+  aspectRatio?: string;
   textures?: {
     front?: string;
     back?: string;
@@ -406,9 +669,9 @@ interface Scene3DProps {
   };
 }
 
-export default function Scene3D({ className = '', colors, textures, uvTextures, textureTransforms }: Scene3DProps) {
+export default function Scene3D({ className = '', colors, background, motion, texture, scale, aspectRatio, textures, uvTextures, textureTransforms }: Scene3DProps) {
   // 🔥 ULTIMATE TEST: Log received props immediately
-  console.log('🔥 RECEIVED PROPS:', { textures, textureTransforms });
+  console.log('🔥 RECEIVED PROPS:', { textures, textureTransforms, background, motion });
 
   const [contextLost, setContextLost] = useState(false);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -459,11 +722,30 @@ export default function Scene3D({ className = '', colors, textures, uvTextures, 
     );
   }
 
+  // Calculate camera settings based on aspect ratio
+  const getCameraSettings = (ratio: string) => {
+    const baseDistance = 6.5;
+    switch (ratio) {
+      case '16:9':
+        return { position: [0, 0, baseDistance] as [number, number, number], fov: 45 };
+      case '4:3':
+        return { position: [0, 0, baseDistance * 1.1] as [number, number, number], fov: 50 };
+      case '1:1':
+        return { position: [0, 0, baseDistance * 1.2] as [number, number, number], fov: 55 };
+      case '9:16':
+        return { position: [0, 0, baseDistance * 0.9] as [number, number, number], fov: 40 };
+      default:
+        return { position: [0, 0, baseDistance] as [number, number, number], fov: 45 };
+    }
+  };
+
+  const cameraSettings = getCameraSettings(aspectRatio || '16:9');
+
   return (
     <div className={`w-full h-full ${className} relative`}>
       <Canvas
         ref={canvasRef}
-        camera={{ position: [0, 0, 6.5], fov: 45 }}
+        camera={cameraSettings}
         style={{ background: 'transparent' }}
         gl={{
           antialias: true,
@@ -478,19 +760,29 @@ export default function Scene3D({ className = '', colors, textures, uvTextures, 
         }}
       >
         <Suspense fallback={null}>
-          <SceneContent colors={colors} textures={textures} uvTextures={uvTextures} textureTransforms={textureTransforms} />
+          <SceneContent
+            colors={colors}
+            background={background}
+            motion={motion}
+            texture={texture}
+            scale={scale}
+            aspectRatio={aspectRatio}
+            textures={textures}
+            uvTextures={uvTextures}
+            textureTransforms={textureTransforms}
+          />
         </Suspense>
       </Canvas>
 
       {/* 3D interaction hints */}
-      <div className="absolute bottom-4 right-4 bg-white/90 backdrop-blur-sm rounded-lg p-3 shadow-lg">
+      {/* <div className="absolute bottom-4 right-4 bg-white/90 backdrop-blur-sm rounded-lg p-3 shadow-lg">
         <div className="text-xs text-gray-600 mb-2">3D Controls</div>
         <div className="flex flex-col gap-1 text-xs text-gray-500">
           <div>🖱️ Drag to rotate</div>
           <div>⚡ Scroll to zoom</div>
           <div>✋ Right-click to pan</div>
         </div>
-      </div>
+      </div> */}
     </div>
   );
 }
