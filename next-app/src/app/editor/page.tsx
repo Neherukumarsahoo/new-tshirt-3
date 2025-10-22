@@ -458,6 +458,11 @@ function UnifiedImageControl({
   isDragging,
   setContextMenu,
 }: UnifiedImageControlProps) {
+  // 🔥 NEW: Calculate scaled image bounds
+  const imgScale = transforms.scale / 100;
+  const imgW = 300 * imgScale;
+  const imgH = 300 * imgScale;
+
   return (
     <div
       className="absolute z-10"
@@ -479,7 +484,10 @@ function UnifiedImageControl({
             transform: `scale(${transforms.scale / 100}) rotate(${transforms.rotation}deg)`,
             maxWidth: '300px',
             maxHeight: '300px',
-            clipPath: `inset(${transforms.cropTop}% ${transforms.cropRight}% ${transforms.cropBottom}% ${transforms.cropLeft}%)`,
+            // 🔥 NEW: Support negative crop (expansion)
+            clipPath: `inset(${Math.max(0, transforms.cropTop)}% ${Math.max(0, transforms.cropRight)}% ${Math.max(0, transforms.cropBottom)}% ${Math.max(0, transforms.cropLeft)}%)`,
+            // Add padding when crop is negative (expansion)
+            padding: `${Math.max(0, -transforms.cropTop)}% ${Math.max(0, -transforms.cropRight)}% ${Math.max(0, -transforms.cropBottom)}% ${Math.max(0, -transforms.cropLeft)}%`,
           }}
           draggable={false}
           onMouseDown={onDragStart}
@@ -504,28 +512,42 @@ function UnifiedImageControl({
         {/* Visual crop overlays */}
         {(transforms.cropLeft || transforms.cropRight || transforms.cropTop || transforms.cropBottom) && (
           <div className="absolute inset-0 pointer-events-none">
-            {transforms.cropLeft > 0 && (
+            {transforms.cropLeft !== 0 && (
               <div
-                className="absolute top-0 left-0 bg-black/20"
-                style={{ width: `${transforms.cropLeft}%`, height: '100%' }}
+                className="absolute top-0 bg-black/20"
+                style={{
+                  left: transforms.cropLeft < 0 ? `${-transforms.cropLeft}%` : '0%',
+                  width: `${Math.abs(transforms.cropLeft)}%`,
+                  height: '100%',
+                }}
               />
             )}
-            {transforms.cropRight > 0 && (
+            {transforms.cropRight !== 0 && (
               <div
                 className="absolute top-0 right-0 bg-black/20"
-                style={{ width: `${transforms.cropRight}%`, height: '100%' }}
+                style={{
+                  width: `${Math.abs(transforms.cropRight)}%`,
+                  height: '100%',
+                }}
               />
             )}
-            {transforms.cropTop > 0 && (
+            {transforms.cropTop !== 0 && (
               <div
-                className="absolute top-0 left-0 bg-black/20"
-                style={{ width: '100%', height: `${transforms.cropTop}%` }}
+                className="absolute left-0 bg-black/20"
+                style={{
+                  top: transforms.cropTop < 0 ? `${-transforms.cropTop}%` : '0%',
+                  width: '100%',
+                  height: `${Math.abs(transforms.cropTop)}%`,
+                }}
               />
             )}
-            {transforms.cropBottom > 0 && (
+            {transforms.cropBottom !== 0 && (
               <div
                 className="absolute bottom-0 left-0 bg-black/20"
-                style={{ width: '100%', height: `${transforms.cropBottom}%` }}
+                style={{
+                  width: '100%',
+                  height: `${Math.abs(transforms.cropBottom)}%`,
+                }}
               />
             )}
           </div>
@@ -541,7 +563,13 @@ function UnifiedImageControl({
         />
 
         {/* Floating Toolbar - Top (appears on hover) */}
-        <div className="absolute -top-16 left-1/2 transform -translate-x-1/2 z-30">
+        <div
+          className="absolute left-1/2 transform -translate-x-1/2 z-30"
+          style={{
+            // 🔥 NEW: Position above scaled image
+            top: `calc(50% - ${imgH / 2}px - 40px)`,
+          }}
+        >
           <div className="bg-white/95 backdrop-blur-sm rounded-lg px-4 py-2 shadow-lg border border-gray-200 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
             <div className="flex items-center gap-3">
               <span className="text-xs text-gray-600 font-medium">Scale:</span>
@@ -559,7 +587,13 @@ function UnifiedImageControl({
         </div>
 
         {/* Floating Toolbar - Bottom (appears on hover) */}
-        <div className="absolute -bottom-16 left-1/2 transform -translate-x-1/2 z-30">
+        <div
+          className="absolute left-1/2 transform -translate-x-1/2 z-30"
+          style={{
+            // 🔥 NEW: Position below scaled image
+            top: `calc(50% + ${imgH / 2}px + 10px)`,
+          }}
+        >
           <div className="bg-white/95 backdrop-blur-sm rounded-lg px-3 py-2 shadow-lg border border-gray-200 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
             <div className="flex items-center gap-1">
               <button
@@ -591,50 +625,67 @@ function UnifiedImageControl({
           </div>
         </div>
 
-        {/* Modern Corner Resize Handles - Blue/White Design */}
-        {[
-          { cursor: 'nw-resize', position: 'top-left' },
-          { cursor: 'ne-resize', position: 'top-right' },
-          { cursor: 'sw-resize', position: 'bottom-left' },
-          { cursor: 'se-resize', position: 'bottom-right' },
-        ].map(({ cursor, position }) => (
-          <div
-            key={position}
-            className={`absolute w-5 h-5 bg-white border-2 border-blue-500 cursor-${cursor} hover:bg-blue-50 hover:border-blue-600 hover:scale-110 transition-all z-40 shadow-sm`}
-            style={{
-              [position.includes('top') ? 'top' : 'bottom']: '-10px',
-              [position.includes('left') ? 'left' : 'right']: '-10px',
-              borderRadius: '50%',
-            }}
-            onMouseDown={(e) => {
-              e.stopPropagation();
-              const startScale = transforms.scale;
-              const startMouseX = e.clientX;
-              const startMouseY = e.clientY;
+        {/* Modern Corner Resize Handles - DYNAMIC POSITIONING */}
+        {(() => {
+          const imageScale = transforms.scale / 100;
+          const imageWidth = 300 * imageScale;
+          const imageHeight = 300 * imageScale;
 
-              const handleResize = (moveEvent: MouseEvent) => {
-                const deltaX = position.includes('left') ? startMouseX - moveEvent.clientX : moveEvent.clientX - startMouseX;
-                const deltaY = position.includes('top') ? startMouseY - moveEvent.clientY : moveEvent.clientY - startMouseY;
-                const distance = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
+          return [
+            { cursor: 'nw-resize', position: 'top-left' },
+            { cursor: 'ne-resize', position: 'top-right' },
+            { cursor: 'sw-resize', position: 'bottom-left' },
+            { cursor: 'se-resize', position: 'bottom-right' },
+          ].map(({ cursor, position }) => (
+            <div
+              key={position}
+              className={`absolute w-5 h-5 bg-white border-2 border-blue-500 cursor-${cursor} hover:bg-blue-50 hover:border-blue-600 hover:scale-110 transition-all z-40 shadow-sm`}
+              style={{
+                // 🔥 NEW: Dynamic positioning based on scaled image size
+                [position.includes('top') ? 'top' : 'bottom']: position.includes('top') 
+                  ? `calc(50% - ${imageHeight/2}px - 10px)` 
+                  : `calc(50% + ${imageHeight/2}px - 10px)`,
+                [position.includes('left') ? 'left' : 'right']: position.includes('left') 
+                  ? `calc(50% - ${imageWidth/2}px - 10px)` 
+                  : `calc(50% + ${imageWidth/2}px - 10px)`,
+                borderRadius: '50%',
+              }}
+              onMouseDown={(e) => {
+                e.stopPropagation();
+                const startScale = transforms.scale;
+                const startMouseX = e.clientX;
+                const startMouseY = e.clientY;
 
-                const newScale = Math.max(20, Math.min(300, startScale + distance * 0.5));
-                onTransform((prev: any) => ({ ...prev, scale: Math.round(newScale) }));
-              };
+                const handleResize = (moveEvent: MouseEvent) => {
+                  const deltaX = position.includes('left') ? startMouseX - moveEvent.clientX : moveEvent.clientX - startMouseX;
+                  const deltaY = position.includes('top') ? startMouseY - moveEvent.clientY : moveEvent.clientY - startMouseY;
+                  const distance = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
 
-              const handleEnd = () => {
-                document.removeEventListener('mousemove', handleResize);
-                document.removeEventListener('mouseup', handleEnd);
-              };
+                  const newScale = Math.max(20, Math.min(300, startScale + distance * 0.5));
+                  onTransform((prev: any) => ({ ...prev, scale: Math.round(newScale) }));
+                };
 
-              document.addEventListener('mousemove', handleResize);
-              document.addEventListener('mouseup', handleEnd);
-            }}
-          />
-        ))}
+                const handleEnd = () => {
+                  document.removeEventListener('mousemove', handleResize);
+                  document.removeEventListener('mouseup', handleEnd);
+                };
+
+                document.addEventListener('mousemove', handleResize);
+                document.addEventListener('mouseup', handleEnd);
+              }}
+            />
+          ));
+        })()}
 
         {/* Enhanced Rotation Handle - Blue/White Design */}
         <div
-          className="absolute -top-16 -right-16 w-7 h-7 bg-white rounded-full border-2 border-blue-500 flex items-center justify-center cursor-pointer hover:bg-blue-50 hover:border-blue-600 hover:scale-110 transition-all z-40 shadow-sm"
+          className="absolute w-7 h-7 bg-white rounded-full border-2 border-blue-500 flex items-center justify-center cursor-pointer hover:bg-blue-50 hover:border-blue-600 hover:scale-110 transition-all z-40 shadow-sm"
+          style={{
+            // 🔥 NEW: Position above scaled image
+            top: `calc(50% - ${imgH / 2}px - 25px)`,
+            left: '50%',
+            transform: 'translateX(-50%)',
+          }}
           onMouseDown={(e) => {
             e.stopPropagation();
             const startRotation = transforms.rotation;
@@ -688,10 +739,10 @@ function UnifiedImageControl({
                 const dy = me.clientY - start.y;
 
                 const upd: any = {};
-                if (pos.includes('left')) upd.cropLeft = Math.max(0, Math.min(50, sLeft + dx * 0.2));
-                if (pos.includes('right')) upd.cropRight = Math.max(0, Math.min(50, sRight - dx * 0.2));
-                if (pos.includes('top')) upd.cropTop = Math.max(0, Math.min(50, sTop + dy * 0.2));
-                if (pos.includes('bottom')) upd.cropBottom = Math.max(0, Math.min(50, sBottom - dy * 0.2));
+                if (pos.includes('left')) upd.cropLeft = Math.max(-25, Math.min(50, sLeft + dx * 0.2));
+                if (pos.includes('right')) upd.cropRight = Math.max(-25, Math.min(50, sRight - dx * 0.2));
+                if (pos.includes('top')) upd.cropTop = Math.max(-25, Math.min(50, sTop + dy * 0.2));
+                if (pos.includes('bottom')) upd.cropBottom = Math.max(-25, Math.min(50, sBottom - dy * 0.2));
                 onTransform((prev: any) => ({ ...prev, ...upd }));
               };
 
@@ -707,38 +758,66 @@ function UnifiedImageControl({
         ))}
 
         {/* Edge Crop Handles - Green Design */}
-        {[
-          { edge: 'top', cursor: 'n-resize', style: { top: '-6px', left: '50%', transform: 'translateX(-50%)' } },
-          { edge: 'bottom', cursor: 's-resize', style: { bottom: '-6px', left: '50%', transform: 'translateX(-50%)' } },
-          { edge: 'left', cursor: 'w-resize', style: { left: '-6px', top: '50%', transform: 'translateY(-50%)' } },
-          { edge: 'right', cursor: 'e-resize', style: { right: '-6px', top: '50%', transform: 'translateY(-50%)' } },
-        ].map(({ edge, cursor, style }) => (
-          <div
-            key={`edge-${edge}`}
-            className={`absolute w-3 h-3 bg-green-500 border border-white cursor-${cursor} hover:bg-green-600 transition-all z-40 rounded-sm`}
-            style={style}
-            onMouseDown={(e) => {
-              e.stopPropagation();
-              const start = { x: e.clientX, y: e.clientY };
-              const startVal = transforms[`crop${edge[0].toUpperCase() + edge.slice(1)}` as 'cropTop' | 'cropBottom' | 'cropLeft' | 'cropRight'];
+        {(() => {
+          const imageScale = transforms.scale / 100;
+          const imageWidth = 300 * imageScale;
+          const imageHeight = 300 * imageScale;
 
-              const onMove = (me: MouseEvent) => {
-                const delta = (edge === 'left' || edge === 'right') ? me.clientX - start.x : me.clientY - start.y;
-                const sign = (edge === 'left' || edge === 'top') ? 1 : -1; // dragging inward increases crop
-                const next = Math.max(0, Math.min(50, startVal + sign * delta * 0.2));
-                onTransform((prev: any) => ({ ...prev, [`crop${edge[0].toUpperCase() + edge.slice(1)}`]: next }));
-              };
+          return [
+            { edge: 'top', cursor: 'n-resize' },
+            { edge: 'bottom', cursor: 's-resize' },
+            { edge: 'left', cursor: 'w-resize' },
+            { edge: 'right', cursor: 'e-resize' },
+          ].map(({ edge, cursor }) => (
+            <div
+              key={`edge-${edge}`}
+              className={`absolute w-3 h-3 bg-green-500 border border-white cursor-${cursor} hover:bg-green-600 transition-all z-40 rounded-sm`}
+              style={{
+                // 🔥 NEW: Dynamic edge positioning
+                ...(edge === 'top' && { 
+                  top: `calc(50% - ${imageHeight/2}px - 6px)`, 
+                  left: '50%', 
+                  transform: 'translateX(-50%)' 
+                }),
+                ...(edge === 'bottom' && { 
+                  bottom: `calc(50% - ${imageHeight/2}px - 6px)`, 
+                  left: '50%', 
+                  transform: 'translateX(-50%)' 
+                }),
+                ...(edge === 'left' && { 
+                  left: `calc(50% - ${imageWidth/2}px - 6px)`, 
+                  top: '50%', 
+                  transform: 'translateY(-50%)' 
+                }),
+                ...(edge === 'right' && { 
+                  right: `calc(50% - ${imageWidth/2}px - 6px)`, 
+                  top: '50%', 
+                  transform: 'translateY(-50%)' 
+                }),
+              }}
+              onMouseDown={(e) => {
+                e.stopPropagation();
+                const start = { x: e.clientX, y: e.clientY };
+                const startVal = transforms[`crop${edge[0].toUpperCase() + edge.slice(1)}` as 'cropTop' | 'cropBottom' | 'cropLeft' | 'cropRight'];
 
-              const onUp = () => {
-                document.removeEventListener('mousemove', onMove);
-                document.removeEventListener('mouseup', onUp);
-              };
+                const onMove = (me: MouseEvent) => {
+                  const delta = (edge === 'left' || edge === 'right') ? me.clientX - start.x : me.clientY - start.y;
+                  const sign = (edge === 'left' || edge === 'top') ? 1 : -1; // dragging inward increases crop
+                  const next = Math.max(-25, Math.min(50, startVal + sign * delta * 0.2));
+                  onTransform((prev: any) => ({ ...prev, [`crop${edge[0].toUpperCase() + edge.slice(1)}`]: next }));
+                };
 
-              document.addEventListener('mousemove', onMove);
-              document.addEventListener('mouseup', onUp);
-            }}
-          />
-        ))}
+                const onUp = () => {
+                  document.removeEventListener('mousemove', onMove);
+                  document.removeEventListener('mouseup', onUp);
+                };
+
+                document.addEventListener('mousemove', onMove);
+                document.addEventListener('mouseup', onUp);
+              }}
+            />
+          ));
+        })()}
       </div>
     </div>
   );
