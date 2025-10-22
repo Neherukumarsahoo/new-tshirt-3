@@ -39,7 +39,7 @@ async function loadImage(src: string): Promise<HTMLImageElement> {
   });
 }
 
-async function applyMask(imageUrl: string, maskUrl: string): Promise<string> {
+async function applyMask(imageUrl: string, maskUrl: string, cropValues?: { cropLeft: number; cropRight: number; cropTop: number; cropBottom: number }): Promise<string> {
   try {
     const [img, mask] = await Promise.all([loadImage(imageUrl), loadImage(maskUrl)]);
 
@@ -49,8 +49,28 @@ async function applyMask(imageUrl: string, maskUrl: string): Promise<string> {
     canvas.height = size;
     const ctx = canvas.getContext('2d')!;
 
-    // Draw the uploaded image
-    ctx.drawImage(img, 0, 0, size, size);
+    // If crop values are provided, apply crop first
+    if (cropValues && (cropValues.cropLeft || cropValues.cropRight || cropValues.cropTop || cropValues.cropBottom)) {
+      const cropCanvas = document.createElement('canvas');
+      cropCanvas.width = img.width;
+      cropCanvas.height = img.height;
+      const cropCtx = cropCanvas.getContext('2d')!;
+
+      // Calculate crop in pixels
+      const cropX = Math.round((cropValues.cropLeft / 100) * img.width);
+      const cropY = Math.round((cropValues.cropTop / 100) * img.height);
+      const cropWidth = Math.round(img.width - (cropValues.cropLeft / 100) * img.width - (cropValues.cropRight / 100) * img.width);
+      const cropHeight = Math.round(img.height - (cropValues.cropTop / 100) * img.height - (cropValues.cropBottom / 100) * img.height);
+
+      // Draw cropped image
+      cropCtx.drawImage(img, cropX, cropY, cropWidth, cropHeight, 0, 0, img.width, img.height);
+
+      // Use cropped image for masking
+      ctx.drawImage(cropCanvas, 0, 0, size, size);
+    } else {
+      // Draw the uploaded image without crop
+      ctx.drawImage(img, 0, 0, size, size);
+    }
 
     // Apply the zone mask (white areas = visible, black areas = transparent)
     ctx.globalCompositeOperation = 'destination-in';
@@ -314,7 +334,7 @@ function InteractiveContainer({
             console.log('🔥 BEFORE setContainerImages:', containerImages);
 
             // 🔥 FIX: Use 'type' instead of 'activeContainer'
-            applyMask(currentImage, maskByZone[type]).then((maskedImage: string) => {
+            applyMask(currentImage, maskByZone[type], imageTransforms).then((maskedImage: string) => {
               // Place masked image in the container (Mockey.ai style)
               setContainerImages(prev => {
                 const next = { ...prev, [type]: maskedImage };  // Use 'type' not 'activeContainer'
@@ -459,6 +479,7 @@ function UnifiedImageControl({
             transform: `scale(${transforms.scale / 100}) rotate(${transforms.rotation}deg)`,
             maxWidth: '300px',
             maxHeight: '300px',
+            clipPath: `inset(${transforms.cropTop}% ${transforms.cropRight}% ${transforms.cropBottom}% ${transforms.cropLeft}%)`,
           }}
           draggable={false}
           onMouseDown={onDragStart}
@@ -479,6 +500,36 @@ function UnifiedImageControl({
             }
           }}
         />
+
+        {/* Visual crop overlays */}
+        {(transforms.cropLeft || transforms.cropRight || transforms.cropTop || transforms.cropBottom) && (
+          <div className="absolute inset-0 pointer-events-none">
+            {transforms.cropLeft > 0 && (
+              <div
+                className="absolute top-0 left-0 bg-black/20"
+                style={{ width: `${transforms.cropLeft}%`, height: '100%' }}
+              />
+            )}
+            {transforms.cropRight > 0 && (
+              <div
+                className="absolute top-0 right-0 bg-black/20"
+                style={{ width: `${transforms.cropRight}%`, height: '100%' }}
+              />
+            )}
+            {transforms.cropTop > 0 && (
+              <div
+                className="absolute top-0 left-0 bg-black/20"
+                style={{ width: '100%', height: `${transforms.cropTop}%` }}
+              />
+            )}
+            {transforms.cropBottom > 0 && (
+              <div
+                className="absolute bottom-0 left-0 bg-black/20"
+                style={{ width: '100%', height: `${transforms.cropBottom}%` }}
+              />
+            )}
+          </div>
+        )}
 
         {/* Drag Area */}
         <div
@@ -581,17 +632,21 @@ function UnifiedImageControl({
           />
         ))}
 
-        {/* Modern Rotation Handle - Blue/White Design */}
+        {/* Enhanced Rotation Handle - Blue/White Design */}
         <div
           className="absolute -top-16 -right-16 w-7 h-7 bg-white rounded-full border-2 border-blue-500 flex items-center justify-center cursor-pointer hover:bg-blue-50 hover:border-blue-600 hover:scale-110 transition-all z-40 shadow-sm"
           onMouseDown={(e) => {
             e.stopPropagation();
             const startRotation = transforms.rotation;
-            const startMouseX = e.clientX;
+            const rect = e.currentTarget.getBoundingClientRect();
+            const centerX = rect.left + rect.width / 2;
+            const centerY = rect.top + rect.height / 2;
+            const startAngle = Math.atan2(e.clientY - centerY, e.clientX - centerX);
 
             const handleRotate = (moveEvent: MouseEvent) => {
-              const deltaX = moveEvent.clientX - startMouseX;
-              const newRotation = startRotation + (deltaX * 0.5);
+              const currentAngle = Math.atan2(moveEvent.clientY - centerY, moveEvent.clientX - centerX);
+              let deltaAngle = (currentAngle - startAngle) * (180 / Math.PI);
+              const newRotation = startRotation + deltaAngle;
               onTransform((prev: any) => ({ ...prev, rotation: Math.max(-180, Math.min(180, newRotation)) }));
             };
 
@@ -608,6 +663,82 @@ function UnifiedImageControl({
             <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
           </svg>
         </div>
+
+        {/* Corner Crop Handles - Blue Design for diagonal crop */}
+        {[
+          { pos: 'top-left', cursor: 'nw-resize' },
+          { pos: 'top-right', cursor: 'ne-resize' },
+          { pos: 'bottom-left', cursor: 'sw-resize' },
+          { pos: 'bottom-right', cursor: 'se-resize' },
+        ].map(({ pos, cursor }) => (
+          <div
+            key={`corner-${pos}`}
+            className={`absolute w-3 h-3 bg-blue-500 border border-white cursor-${cursor} hover:bg-blue-600 transition-all z-40`}
+            style={{
+              [pos.includes('top') ? 'top' : 'bottom']: '-6px',
+              [pos.includes('left') ? 'left' : 'right']: '-6px',
+            }}
+            onMouseDown={(e) => {
+              e.stopPropagation();
+              const start = { x: e.clientX, y: e.clientY };
+              const sTop = transforms.cropTop, sBottom = transforms.cropBottom, sLeft = transforms.cropLeft, sRight = transforms.cropRight;
+
+              const onMove = (me: MouseEvent) => {
+                const dx = me.clientX - start.x;
+                const dy = me.clientY - start.y;
+
+                const upd: any = {};
+                if (pos.includes('left')) upd.cropLeft = Math.max(0, Math.min(50, sLeft + dx * 0.2));
+                if (pos.includes('right')) upd.cropRight = Math.max(0, Math.min(50, sRight - dx * 0.2));
+                if (pos.includes('top')) upd.cropTop = Math.max(0, Math.min(50, sTop + dy * 0.2));
+                if (pos.includes('bottom')) upd.cropBottom = Math.max(0, Math.min(50, sBottom - dy * 0.2));
+                onTransform((prev: any) => ({ ...prev, ...upd }));
+              };
+
+              const onUp = () => {
+                document.removeEventListener('mousemove', onMove);
+                document.removeEventListener('mouseup', onUp);
+              };
+
+              document.addEventListener('mousemove', onMove);
+              document.addEventListener('mouseup', onUp);
+            }}
+          />
+        ))}
+
+        {/* Edge Crop Handles - Green Design */}
+        {[
+          { edge: 'top', cursor: 'n-resize', style: { top: '-6px', left: '50%', transform: 'translateX(-50%)' } },
+          { edge: 'bottom', cursor: 's-resize', style: { bottom: '-6px', left: '50%', transform: 'translateX(-50%)' } },
+          { edge: 'left', cursor: 'w-resize', style: { left: '-6px', top: '50%', transform: 'translateY(-50%)' } },
+          { edge: 'right', cursor: 'e-resize', style: { right: '-6px', top: '50%', transform: 'translateY(-50%)' } },
+        ].map(({ edge, cursor, style }) => (
+          <div
+            key={`edge-${edge}`}
+            className={`absolute w-3 h-3 bg-green-500 border border-white cursor-${cursor} hover:bg-green-600 transition-all z-40 rounded-sm`}
+            style={style}
+            onMouseDown={(e) => {
+              e.stopPropagation();
+              const start = { x: e.clientX, y: e.clientY };
+              const startVal = transforms[`crop${edge[0].toUpperCase() + edge.slice(1)}` as 'cropTop' | 'cropBottom' | 'cropLeft' | 'cropRight'];
+
+              const onMove = (me: MouseEvent) => {
+                const delta = (edge === 'left' || edge === 'right') ? me.clientX - start.x : me.clientY - start.y;
+                const sign = (edge === 'left' || edge === 'top') ? 1 : -1; // dragging inward increases crop
+                const next = Math.max(0, Math.min(50, startVal + sign * delta * 0.2));
+                onTransform((prev: any) => ({ ...prev, [`crop${edge[0].toUpperCase() + edge.slice(1)}`]: next }));
+              };
+
+              const onUp = () => {
+                document.removeEventListener('mousemove', onMove);
+                document.removeEventListener('mouseup', onUp);
+              };
+
+              document.addEventListener('mousemove', onMove);
+              document.addEventListener('mouseup', onUp);
+            }}
+          />
+        ))}
       </div>
     </div>
   );

@@ -359,28 +359,36 @@ function BackgroundElement({ background }: { background?: BackgroundSettings }) 
         break;
 
       case 'gradient':
-        if (background.gradient) {
+        {
+          // Use a safe local fallback for gradient data so TypeScript can't complain about undefined
+          const gradientDef = background.gradient ?? { type: 'linear', colors: ['#f8fafc'], direction: 0 };
+
           // Create canvas for gradient texture
           const canvas = document.createElement('canvas');
           canvas.width = 512;
           canvas.height = 512;
           const ctx = canvas.getContext('2d')!;
 
-          if (background.gradient.type === 'linear') {
+          const colorsArr = gradientDef.colors && gradientDef.colors.length ? gradientDef.colors : ['#f8fafc'];
+
+          if (gradientDef.type === 'linear') {
+            const angle = (gradientDef.direction || 0) * Math.PI / 180;
             const gradient = ctx.createLinearGradient(
               0, 0,
-              Math.cos((background.gradient.direction || 0) * Math.PI / 180) * 512,
-              Math.sin((background.gradient.direction || 0) * Math.PI / 180) * 512
+              Math.cos(angle) * 512,
+              Math.sin(angle) * 512
             );
-            background.gradient.colors.forEach((color, index) => {
-              gradient.addColorStop(index / (background.gradient.colors.length - 1), color);
+            colorsArr.forEach((color, index) => {
+              const stop = colorsArr.length > 1 ? index / (colorsArr.length - 1) : 0;
+              gradient.addColorStop(stop, color);
             });
             ctx.fillStyle = gradient;
             ctx.fillRect(0, 0, 512, 512);
           } else {
             const gradient = ctx.createRadialGradient(256, 256, 0, 256, 256, 256);
-            background.gradient.colors.forEach((color, index) => {
-              gradient.addColorStop(index / (background.gradient.colors.length - 1), color);
+            colorsArr.forEach((color, index) => {
+              const stop = colorsArr.length > 1 ? index / (colorsArr.length - 1) : 0;
+              gradient.addColorStop(stop, color);
             });
             ctx.fillStyle = gradient;
             ctx.fillRect(0, 0, 512, 512);
@@ -389,11 +397,6 @@ function BackgroundElement({ background }: { background?: BackgroundSettings }) 
           const gradientTexture = new THREE.CanvasTexture(canvas);
           material = new THREE.MeshBasicMaterial({
             map: gradientTexture,
-            side: THREE.BackSide
-          });
-        } else {
-          material = new THREE.MeshBasicMaterial({
-            color: '#f8fafc',
             side: THREE.BackSide
           });
         }
