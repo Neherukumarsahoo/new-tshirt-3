@@ -474,7 +474,13 @@ function UnifiedImageControl({
       }}
     >
       {/* Main Image with Handles */}
-      <div className="relative group">
+      <div
+        className="relative group"
+        style={{
+          // Move padding to wrapper
+          padding: `${Math.max(0, -transforms.cropTop)}% ${Math.max(0, -transforms.cropRight)}% ${Math.max(0, -transforms.cropBottom)}% ${Math.max(0, -transforms.cropLeft)}%`,
+        }}
+      >
         {/* Design Image */}
         <img
           src={image}
@@ -486,8 +492,6 @@ function UnifiedImageControl({
             maxHeight: '300px',
             // 🔥 NEW: Support negative crop (expansion)
             clipPath: `inset(${Math.max(0, transforms.cropTop)}% ${Math.max(0, transforms.cropRight)}% ${Math.max(0, transforms.cropBottom)}% ${Math.max(0, transforms.cropLeft)}%)`,
-            // Add padding when crop is negative (expansion)
-            padding: `${Math.max(0, -transforms.cropTop)}% ${Math.max(0, -transforms.cropRight)}% ${Math.max(0, -transforms.cropBottom)}% ${Math.max(0, -transforms.cropLeft)}%`,
           }}
           draggable={false}
           onMouseDown={onDragStart}
@@ -508,50 +512,6 @@ function UnifiedImageControl({
             }
           }}
         />
-
-        {/* Visual crop overlays */}
-        {(transforms.cropLeft || transforms.cropRight || transforms.cropTop || transforms.cropBottom) && (
-          <div className="absolute inset-0 pointer-events-none">
-            {transforms.cropLeft !== 0 && (
-              <div
-                className="absolute top-0 bg-black/20"
-                style={{
-                  left: transforms.cropLeft < 0 ? `${-transforms.cropLeft}%` : '0%',
-                  width: `${Math.abs(transforms.cropLeft)}%`,
-                  height: '100%',
-                }}
-              />
-            )}
-            {transforms.cropRight !== 0 && (
-              <div
-                className="absolute top-0 right-0 bg-black/20"
-                style={{
-                  width: `${Math.abs(transforms.cropRight)}%`,
-                  height: '100%',
-                }}
-              />
-            )}
-            {transforms.cropTop !== 0 && (
-              <div
-                className="absolute left-0 bg-black/20"
-                style={{
-                  top: transforms.cropTop < 0 ? `${-transforms.cropTop}%` : '0%',
-                  width: '100%',
-                  height: `${Math.abs(transforms.cropTop)}%`,
-                }}
-              />
-            )}
-            {transforms.cropBottom !== 0 && (
-              <div
-                className="absolute bottom-0 left-0 bg-black/20"
-                style={{
-                  width: '100%',
-                  height: `${Math.abs(transforms.cropBottom)}%`,
-                }}
-              />
-            )}
-          </div>
-        )}
 
         {/* Drag Area */}
         <div
@@ -626,56 +586,50 @@ function UnifiedImageControl({
         </div>
 
         {/* Modern Corner Resize Handles - DYNAMIC POSITIONING */}
-        {(() => {
-          const imageScale = transforms.scale / 100;
-          const imageWidth = 300 * imageScale;
-          const imageHeight = 300 * imageScale;
+        {[
+          { cursor: 'nw-resize', position: 'top-left' },
+          { cursor: 'ne-resize', position: 'top-right' },
+          { cursor: 'sw-resize', position: 'bottom-left' },
+          { cursor: 'se-resize', position: 'bottom-right' },
+        ].map(({ cursor, position }) => (
+          <div
+            key={position}
+            className={`absolute w-5 h-5 bg-white border-2 border-blue-500 cursor-${cursor} hover:bg-blue-50 hover:border-blue-600 hover:scale-110 transition-all z-40 shadow-sm`}
+            style={{
+              // 🔥 NEW: Dynamic positioning based on scaled image size
+              [position.includes('top') ? 'top' : 'bottom']: position.includes('top') 
+                ? `calc(50% - ${imgH/2}px - 10px)` 
+                : `calc(50% + ${imgH/2}px - 10px)`,
+              [position.includes('left') ? 'left' : 'right']: position.includes('left') 
+                ? `calc(50% - ${imgW/2}px - 10px)` 
+                : `calc(50% + ${imgW/2}px - 10px)`,
+              borderRadius: '50%',
+            }}
+            onMouseDown={(e) => {
+              e.stopPropagation();
+              const startScale = transforms.scale;
+              const startMouseX = e.clientX;
+              const startMouseY = e.clientY;
 
-          return [
-            { cursor: 'nw-resize', position: 'top-left' },
-            { cursor: 'ne-resize', position: 'top-right' },
-            { cursor: 'sw-resize', position: 'bottom-left' },
-            { cursor: 'se-resize', position: 'bottom-right' },
-          ].map(({ cursor, position }) => (
-            <div
-              key={position}
-              className={`absolute w-5 h-5 bg-white border-2 border-blue-500 cursor-${cursor} hover:bg-blue-50 hover:border-blue-600 hover:scale-110 transition-all z-40 shadow-sm`}
-              style={{
-                // 🔥 NEW: Dynamic positioning based on scaled image size
-                [position.includes('top') ? 'top' : 'bottom']: position.includes('top') 
-                  ? `calc(50% - ${imageHeight/2}px - 10px)` 
-                  : `calc(50% + ${imageHeight/2}px - 10px)`,
-                [position.includes('left') ? 'left' : 'right']: position.includes('left') 
-                  ? `calc(50% - ${imageWidth/2}px - 10px)` 
-                  : `calc(50% + ${imageWidth/2}px - 10px)`,
-                borderRadius: '50%',
-              }}
-              onMouseDown={(e) => {
-                e.stopPropagation();
-                const startScale = transforms.scale;
-                const startMouseX = e.clientX;
-                const startMouseY = e.clientY;
+              const handleResize = (moveEvent: MouseEvent) => {
+                const deltaX = position.includes('left') ? startMouseX - moveEvent.clientX : moveEvent.clientX - startMouseX;
+                const deltaY = position.includes('top') ? startMouseY - moveEvent.clientY : moveEvent.clientY - startMouseY;
+                const distance = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
 
-                const handleResize = (moveEvent: MouseEvent) => {
-                  const deltaX = position.includes('left') ? startMouseX - moveEvent.clientX : moveEvent.clientX - startMouseX;
-                  const deltaY = position.includes('top') ? startMouseY - moveEvent.clientY : moveEvent.clientY - startMouseY;
-                  const distance = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
+                const newScale = Math.max(20, Math.min(300, startScale + distance * 0.5));
+                onTransform((prev: any) => ({ ...prev, scale: Math.round(newScale) }));
+              };
 
-                  const newScale = Math.max(20, Math.min(300, startScale + distance * 0.5));
-                  onTransform((prev: any) => ({ ...prev, scale: Math.round(newScale) }));
-                };
+              const handleEnd = () => {
+                document.removeEventListener('mousemove', handleResize);
+                document.removeEventListener('mouseup', handleEnd);
+              };
 
-                const handleEnd = () => {
-                  document.removeEventListener('mousemove', handleResize);
-                  document.removeEventListener('mouseup', handleEnd);
-                };
-
-                document.addEventListener('mousemove', handleResize);
-                document.addEventListener('mouseup', handleEnd);
-              }}
-            />
-          ));
-        })()}
+              document.addEventListener('mousemove', handleResize);
+              document.addEventListener('mouseup', handleEnd);
+            }}
+          />
+        ))}
 
         {/* Enhanced Rotation Handle - Blue/White Design */}
         <div
@@ -715,47 +669,7 @@ function UnifiedImageControl({
           </svg>
         </div>
 
-        {/* Corner Crop Handles - Blue Design for diagonal crop */}
-        {[
-          { pos: 'top-left', cursor: 'nw-resize' },
-          { pos: 'top-right', cursor: 'ne-resize' },
-          { pos: 'bottom-left', cursor: 'sw-resize' },
-          { pos: 'bottom-right', cursor: 'se-resize' },
-        ].map(({ pos, cursor }) => (
-          <div
-            key={`corner-${pos}`}
-            className={`absolute w-3 h-3 bg-blue-500 border border-white cursor-${cursor} hover:bg-blue-600 transition-all z-40`}
-            style={{
-              [pos.includes('top') ? 'top' : 'bottom']: '-6px',
-              [pos.includes('left') ? 'left' : 'right']: '-6px',
-            }}
-            onMouseDown={(e) => {
-              e.stopPropagation();
-              const start = { x: e.clientX, y: e.clientY };
-              const sTop = transforms.cropTop, sBottom = transforms.cropBottom, sLeft = transforms.cropLeft, sRight = transforms.cropRight;
 
-              const onMove = (me: MouseEvent) => {
-                const dx = me.clientX - start.x;
-                const dy = me.clientY - start.y;
-
-                const upd: any = {};
-                if (pos.includes('left')) upd.cropLeft = Math.max(-25, Math.min(50, sLeft + dx * 0.2));
-                if (pos.includes('right')) upd.cropRight = Math.max(-25, Math.min(50, sRight - dx * 0.2));
-                if (pos.includes('top')) upd.cropTop = Math.max(-25, Math.min(50, sTop + dy * 0.2));
-                if (pos.includes('bottom')) upd.cropBottom = Math.max(-25, Math.min(50, sBottom - dy * 0.2));
-                onTransform((prev: any) => ({ ...prev, ...upd }));
-              };
-
-              const onUp = () => {
-                document.removeEventListener('mousemove', onMove);
-                document.removeEventListener('mouseup', onUp);
-              };
-
-              document.addEventListener('mousemove', onMove);
-              document.addEventListener('mouseup', onUp);
-            }}
-          />
-        ))}
 
         {/* Edge Crop Handles - Green Design */}
         {(() => {
@@ -802,8 +716,9 @@ function UnifiedImageControl({
 
                 const onMove = (me: MouseEvent) => {
                   const delta = (edge === 'left' || edge === 'right') ? me.clientX - start.x : me.clientY - start.y;
-                  const sign = (edge === 'left' || edge === 'top') ? 1 : -1; // dragging inward increases crop
-                  const next = Math.max(-25, Math.min(50, startVal + sign * delta * 0.2));
+                  // inward: positive crop; outward: negative crop → stretch
+                  const dir = (edge === 'left' || edge === 'top') ? 1 : -1;
+                const next = Math.max(-25, Math.min(50, startVal + dir * delta * 0.2));
                   onTransform((prev: any) => ({ ...prev, [`crop${edge[0].toUpperCase() + edge.slice(1)}`]: next }));
                 };
 
