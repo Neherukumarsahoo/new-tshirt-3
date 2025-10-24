@@ -64,6 +64,13 @@ function TShirtModel({ modelPath = '/poloshirt3.glb', colors, textures, uvTextur
     console.log('🔍 Model child:', child.name, child.type);
   });
 
+  // Tiny initial rotation to break z-fighting at initial view
+  useEffect(() => {
+    if (modelRef.current) {
+      modelRef.current.rotation.y = 0.01; // imperceptible but breaks z-fight
+    }
+  }, []);
+
   // 🔥 NEW: Apply textures to SEPARATE meshes (front, back, leftSleeve, rightSleeve)
   useEffect(() => {
     if (!modelRef.current) return;
@@ -82,6 +89,8 @@ function TShirtModel({ modelPath = '/poloshirt3.glb', colors, textures, uvTextur
             opacity: 0,
             visible: false,
           });
+          child.castShadow = false;
+          child.receiveShadow = false;
           console.log('🔥 Made design mesh transparent');
           return;
         }
@@ -110,64 +119,122 @@ function TShirtModel({ modelPath = '/poloshirt3.glb', colors, textures, uvTextur
         }
 
         if (textureUrl) {
+          // Set placeholder material to prevent gray flash
+          child.material = new THREE.MeshLambertMaterial({
+            color: 0xcccccc, // gray placeholder
+            side: THREE.DoubleSide,
+            depthWrite: false,
+          });
+          child.renderOrder = 2;
+          child.castShadow = false;
+          child.receiveShadow = false;
+
           const texture = textureLoader.load(
             textureUrl,
-            () => console.log('✅ Texture loaded successfully on', child.name, ':', textureUrl),
+            () => {
+              texture.needsUpdate = true;
+              texture.colorSpace = THREE.SRGBColorSpace;
+
+              // Set texture properties
+              texture.flipY = false;
+              texture.wrapS = THREE.ClampToEdgeWrapping;
+              texture.wrapT = THREE.ClampToEdgeWrapping;
+              texture.minFilter = THREE.LinearFilter;
+              texture.magFilter = THREE.LinearFilter;
+              texture.generateMipmaps = false;
+
+              // Apply transforms if available
+              if (transforms) {
+                texture.center.set(0.5, 0.5);
+                texture.rotation = (transforms.rotation * Math.PI) / 180;
+
+                const scaleX = Math.max(0.1, transforms.scale / 220);
+                const scaleY = Math.max(0.1, transforms.scale / 220);
+                texture.repeat.set(scaleX, scaleY);
+
+                const offsetX = transforms.position.x / 800;
+                const offsetY = -transforms.position.y / 800;
+                texture.offset.set(offsetX, offsetY);
+              } else {
+                // Default settings
+                texture.repeat.set(1, 1);
+                texture.offset.set(0, 0);
+                texture.center.set(0.5, 0.5);
+                texture.rotation = 0;
+              }
+
+              // Update material with texture
+              child.material = new THREE.MeshLambertMaterial({
+                map: texture,
+                transparent: true,
+                side: THREE.DoubleSide,
+                depthWrite: false,
+              });
+
+              child.material.needsUpdate = true;
+              invalidate(); // force re-render when texture is ready
+              console.log('✅ Applied texture to', child.name, 'mesh');
+            },
             undefined,
             (err) => console.error('❌ Texture failed on', child.name, ':', err)
           );
-
-          // Set texture properties
-          texture.flipY = false;
-          texture.wrapS = THREE.ClampToEdgeWrapping;
-          texture.wrapT = THREE.ClampToEdgeWrapping;
-          texture.minFilter = THREE.LinearFilter;
-          texture.magFilter = THREE.LinearFilter;
-          texture.generateMipmaps = false;
-
-          // Apply transforms if available
-          if (transforms) {
-            texture.center.set(0.5, 0.5);
-            texture.rotation = (transforms.rotation * Math.PI) / 180;
-
-            const scaleX = Math.max(0.1, transforms.scale / 220);
-            const scaleY = Math.max(0.1, transforms.scale / 220);
-            texture.repeat.set(scaleX, scaleY);
-
-            const offsetX = transforms.position.x / 800;
-            const offsetY = -transforms.position.y / 800;
-            texture.offset.set(offsetX, offsetY);
-          } else {
-            // Default settings
-            texture.repeat.set(1, 1);
-            texture.offset.set(0, 0);
-            texture.center.set(0.5, 0.5);
-            texture.rotation = 0;
-          }
-
-          // Apply textured material to this specific mesh
-          child.material = new THREE.MeshLambertMaterial({
-            map: texture,
-            transparent: true,
-          });
-
-          console.log('✅ Applied texture to', child.name, 'mesh');
-          child.material.needsUpdate = true;
         } else {
           // No texture for this mesh - apply base color material
           if (meshName.includes('neck') && !meshName.includes('border')) {
-            child.material = new THREE.MeshLambertMaterial({ color: new THREE.Color(colors.neck) });
+            child.material = new THREE.MeshLambertMaterial({
+              color: new THREE.Color(colors.neck),
+              side: THREE.DoubleSide,
+              depthWrite: true,
+            });
+            child.renderOrder = 1;
+            child.castShadow = false;
+            child.receiveShadow = false;
           } else if (meshName.includes('neck') && meshName.includes('border')) {
-            child.material = new THREE.MeshLambertMaterial({ color: new THREE.Color(colors.neckBorder) });
+            child.material = new THREE.MeshLambertMaterial({
+              color: new THREE.Color(colors.neckBorder),
+              side: THREE.DoubleSide,
+              depthWrite: true,
+            });
+            child.renderOrder = 1;
+            child.castShadow = false;
+            child.receiveShadow = false;
           } else if (meshName.includes('cuff')) {
-            child.material = new THREE.MeshLambertMaterial({ color: new THREE.Color(colors.cuff) });
+            child.material = new THREE.MeshLambertMaterial({
+              color: new THREE.Color(colors.cuff),
+              side: THREE.DoubleSide,
+              depthWrite: true,
+            });
+            child.renderOrder = 1;
+            child.castShadow = false;
+            child.receiveShadow = false;
           } else if (meshName.includes('button')) {
-            child.material = new THREE.MeshLambertMaterial({ color: new THREE.Color(colors.buttons) });
+            child.material = new THREE.MeshLambertMaterial({
+              color: new THREE.Color(colors.buttons),
+              side: THREE.DoubleSide,
+              depthWrite: true,
+            });
+            child.renderOrder = 1;
+            child.castShadow = false;
+            child.receiveShadow = false;
           } else if (meshName.includes('ribbed') || meshName.includes('hem')) {
-            child.material = new THREE.MeshLambertMaterial({ color: new THREE.Color(colors.ribbedHem) });
+            child.material = new THREE.MeshLambertMaterial({
+              color: new THREE.Color(colors.ribbedHem),
+              side: THREE.DoubleSide,
+              depthWrite: true,
+            });
+            child.renderOrder = 1;
+            child.castShadow = false;
+            child.receiveShadow = false;
           } else {
             // Default body color for unmatched meshes
-            child.material = new THREE.MeshLambertMaterial({ color: new THREE.Color(colors.body) });
+            child.material = new THREE.MeshLambertMaterial({
+              color: new THREE.Color(colors.body),
+              side: THREE.DoubleSide,
+              depthWrite: true,
+            });
+            child.renderOrder = 1;
+            child.castShadow = false;
+            child.receiveShadow = false;
           }
           console.log('🔥 Applied base material to', child.name);
         }
@@ -409,9 +476,7 @@ function SceneContent({ colors, background, motion, texture, scale, aspectRatio,
       <directionalLight
         position={[5, 5, 5]}
         intensity={1.2}
-        castShadow
-        shadow-mapSize-width={2048}
-        shadow-mapSize-height={2048}
+        castShadow={false}
       />
       <directionalLight
         position={[-5, 3, 2]}
