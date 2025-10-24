@@ -171,6 +171,12 @@ function TShirtModel({ modelPath = '/poloshirt3.glb', colors, textures, uvTextur
                 depthWrite: false,
               });
 
+              // Hard-prevent depth fighting
+              const mat = child.material as THREE.MeshLambertMaterial;
+              mat.polygonOffset = true;
+              mat.polygonOffsetFactor = -1;
+              mat.polygonOffsetUnits = -1;
+
               child.material.needsUpdate = true;
               invalidate(); // force re-render when texture is ready
               console.log('✅ Applied texture to', child.name, 'mesh');
