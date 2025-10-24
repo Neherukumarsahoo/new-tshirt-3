@@ -64,9 +64,9 @@ function TShirtModel({ modelPath = '/poloshirt3.glb', colors, textures, uvTextur
     console.log('🔍 Model child:', child.name, child.type);
   });
 
-  // 🔥 CRITICAL: Watch for texture prop changes and apply them
+  // 🔥 NEW: Apply textures to SEPARATE meshes (front, back, leftSleeve, rightSleeve)
   useEffect(() => {
-    if (!modelRef.current || !textures) return;
+    if (!modelRef.current) return;
 
     console.log('🔥 useEffect triggered with textures:', textures);
 
@@ -75,8 +75,8 @@ function TShirtModel({ modelPath = '/poloshirt3.glb', colors, textures, uvTextur
         const meshName = child.name.toLowerCase();
         console.log('🔥 Processing mesh:', child.name);
 
-        // Special handling for design mesh - always make it transparent
-        if (child.name.toLowerCase() === 'design') {
+        // Skip design mesh
+        if (meshName === 'design') {
           child.material = new THREE.MeshLambertMaterial({
             transparent: true,
             opacity: 0,
@@ -86,235 +86,94 @@ function TShirtModel({ modelPath = '/poloshirt3.glb', colors, textures, uvTextur
           return;
         }
 
-        // Apply texture to BODY mesh only
-        if (child.name.toLowerCase() === 'body') {
-          let textureUrl = null;
-          let transforms = null;
+        // 🚀 NEW LOGIC: Apply texture to SPECIFIC mesh based on mesh name
+        let textureUrl = null;
+        let transforms = null;
 
-          // Check which container has a texture
-          if (textures?.front) {
-            textureUrl = textures.front;
-            transforms = textureTransforms?.front;
-            console.log('🔥 Applying FRONT texture to body:', textureUrl);
-          } else if (textures?.back) {
-            textureUrl = textures.back;
-            transforms = textureTransforms?.back;
-            console.log('🔥 Applying BACK texture to body:', textureUrl);
-          } else if (textures?.leftSleeve) {
-            textureUrl = textures.leftSleeve;
-            transforms = textureTransforms?.leftSleeve;
-            console.log('🔥 Applying LEFT SLEEVE texture to body:', textureUrl);
-          } else if (textures?.rightSleeve) {
-            textureUrl = textures.rightSleeve;
-            transforms = textureTransforms?.rightSleeve;
-            console.log('🔥 Applying RIGHT SLEEVE texture to body:', textureUrl);
-          }
-
-          if (textureUrl) {
-            console.log('🔥 Loading texture URL:', textureUrl);
-
-            const texture = textureLoader.load(
-              textureUrl,
-              () => console.log('✅ Container texture loaded successfully:', textureUrl),
-              undefined,
-              (err) => console.error('❌ Container texture failed:', err)
-            );
-
-            // Set texture properties
-            texture.flipY = false;
-            texture.wrapS = THREE.ClampToEdgeWrapping;
-            texture.wrapT = THREE.ClampToEdgeWrapping;
-            texture.minFilter = THREE.LinearFilter;
-            texture.magFilter = THREE.LinearFilter;
-            texture.generateMipmaps = false;
-
-            // Apply transforms
-            texture.repeat.set(0.8, 0.8);
-            texture.offset.set(0.1, 0.1);
-            texture.center.set(0.5, 0.5);
-            texture.rotation = 0;
-
-            child.material = new THREE.MeshLambertMaterial({
-              map: texture,
-              transparent: true,
-            });
-
-            console.log('✅ Applied container-specific texture to body mesh');
-            child.material.needsUpdate = true;
-          } else {
-            // No texture - apply base material
-            child.material = new THREE.MeshLambertMaterial({
-              color: new THREE.Color(colors.body),
-            });
-            console.log('🔥 Applied base material to body (no texture)');
-          }
-          return;
+        // Match mesh name to texture
+        if (meshName === 'front' && textures?.front) {
+          textureUrl = textures.front;
+          transforms = textureTransforms?.front;
+          console.log('🔥 Applying FRONT texture to FRONT mesh:', textureUrl);
+        } else if (meshName === 'back' && textures?.back) {
+          textureUrl = textures.back;
+          transforms = textureTransforms?.back;
+          console.log('🔥 Applying BACK texture to BACK mesh:', textureUrl);
+        } else if (meshName === 'leftsleeve' && textures?.leftSleeve) {
+          textureUrl = textures.leftSleeve;
+          transforms = textureTransforms?.leftSleeve;
+          console.log('🔥 Applying LEFT SLEEVE texture to LEFTSLEEVE mesh:', textureUrl);
+        } else if (meshName === 'rightsleeve' && textures?.rightSleeve) {
+          textureUrl = textures.rightSleeve;
+          transforms = textureTransforms?.rightSleeve;
+          console.log('🔥 Applying RIGHT SLEEVE texture to RIGHTSLEEVE mesh:', textureUrl);
         }
 
-        // Apply materials to other parts
-        if (meshName.includes('neck') && !meshName.includes('border')) {
-          child.material = new THREE.MeshLambertMaterial({ color: new THREE.Color(colors.neck) });
-        } else if (meshName.includes('neck') && meshName.includes('border')) {
-          child.material = new THREE.MeshLambertMaterial({ color: new THREE.Color(colors.neckBorder) });
-        } else if (meshName.includes('cuff')) {
-          child.material = new THREE.MeshLambertMaterial({ color: new THREE.Color(colors.cuff) });
-        } else if (meshName.includes('button')) {
-          child.material = new THREE.MeshLambertMaterial({ color: new THREE.Color(colors.buttons) });
-        } else if (meshName.includes('ribbed') || meshName.includes('hem')) {
-          child.material = new THREE.MeshLambertMaterial({ color: new THREE.Color(colors.ribbedHem) });
+        if (textureUrl) {
+          const texture = textureLoader.load(
+            textureUrl,
+            () => console.log('✅ Texture loaded successfully on', child.name, ':', textureUrl),
+            undefined,
+            (err) => console.error('❌ Texture failed on', child.name, ':', err)
+          );
+
+          // Set texture properties
+          texture.flipY = false;
+          texture.wrapS = THREE.ClampToEdgeWrapping;
+          texture.wrapT = THREE.ClampToEdgeWrapping;
+          texture.minFilter = THREE.LinearFilter;
+          texture.magFilter = THREE.LinearFilter;
+          texture.generateMipmaps = false;
+
+          // Apply transforms if available
+          if (transforms) {
+            texture.center.set(0.5, 0.5);
+            texture.rotation = (transforms.rotation * Math.PI) / 180;
+
+            const scaleX = Math.max(0.1, transforms.scale / 220);
+            const scaleY = Math.max(0.1, transforms.scale / 220);
+            texture.repeat.set(scaleX, scaleY);
+
+            const offsetX = transforms.position.x / 800;
+            const offsetY = -transforms.position.y / 800;
+            texture.offset.set(offsetX, offsetY);
+          } else {
+            // Default settings
+            texture.repeat.set(1, 1);
+            texture.offset.set(0, 0);
+            texture.center.set(0.5, 0.5);
+            texture.rotation = 0;
+          }
+
+          // Apply textured material to this specific mesh
+          child.material = new THREE.MeshLambertMaterial({
+            map: texture,
+            transparent: true,
+          });
+
+          console.log('✅ Applied texture to', child.name, 'mesh');
+          child.material.needsUpdate = true;
         } else {
-          child.material = new THREE.MeshLambertMaterial({ color: new THREE.Color(colors.body) });
+          // No texture for this mesh - apply base color material
+          if (meshName.includes('neck') && !meshName.includes('border')) {
+            child.material = new THREE.MeshLambertMaterial({ color: new THREE.Color(colors.neck) });
+          } else if (meshName.includes('neck') && meshName.includes('border')) {
+            child.material = new THREE.MeshLambertMaterial({ color: new THREE.Color(colors.neckBorder) });
+          } else if (meshName.includes('cuff')) {
+            child.material = new THREE.MeshLambertMaterial({ color: new THREE.Color(colors.cuff) });
+          } else if (meshName.includes('button')) {
+            child.material = new THREE.MeshLambertMaterial({ color: new THREE.Color(colors.buttons) });
+          } else if (meshName.includes('ribbed') || meshName.includes('hem')) {
+            child.material = new THREE.MeshLambertMaterial({ color: new THREE.Color(colors.ribbedHem) });
+          } else {
+            // Default body color for unmatched meshes
+            child.material = new THREE.MeshLambertMaterial({ color: new THREE.Color(colors.body) });
+          }
+          console.log('🔥 Applied base material to', child.name);
         }
       }
     });
   }, [modelRef, textures, textureTransforms, textureLoader, colors]);
-
-  // Create materials based on colors and textures
-  const materials = useMemo(() => {
-    const createMaterial = (color: string, textureUrl?: string) => {
-      const material = new THREE.MeshLambertMaterial({
-        color: new THREE.Color(color),
-      });
-
-      if (textureUrl) {
-        try {
-          const texture = textureLoader.load(textureUrl);
-          texture.flipY = false; // Prevent texture flipping for webgl
-          texture.wrapS = THREE.RepeatWrapping;
-          texture.wrapT = THREE.RepeatWrapping;
-
-          // Improve texture filtering for better quality
-          texture.minFilter = THREE.LinearMipmapLinearFilter;
-          texture.magFilter = THREE.LinearFilter;
-
-          // Generate mipmaps for better quality at different scales
-          texture.generateMipmaps = true;
-
-          material.map = texture;
-          material.needsUpdate = true;
-        } catch (error) {
-          console.warn('Failed to load texture:', error);
-        }
-      }
-
-      return material;
-    };
-
-    return {
-      body: createMaterial(colors.body, undefined), // No texture on base body - only apply textures to specific parts
-      neck: createMaterial(colors.neck),
-      neckBorder: createMaterial(colors.neckBorder),
-      cuff: createMaterial(colors.cuff),
-      buttons: createMaterial(colors.buttons),
-      ribbedHem: createMaterial(colors.ribbedHem),
-    };
-  }, [colors, textures, textureLoader]);
-
-  // Apply materials to model parts
-  useEffect(() => {
-    if (!modelRef.current) return;
-
-    modelRef.current.traverse((child) => {
-      if (child instanceof THREE.Mesh) {
-        const meshName = child.name.toLowerCase();
-
-        // Debug: Log all mesh names
-        console.log('Found mesh:', child.name, '(lowercase:', meshName + ')');
-
-        // Special handling for design mesh - always make it transparent
-        if (child.name.toLowerCase() === 'design') {
-          child.material = new THREE.MeshLambertMaterial({
-            transparent: true,
-            opacity: 0,
-            visible: false,
-          });
-          console.log('🔥 Made design mesh transparent');
-          return;
-        }
-
-        // Apply texture to BODY mesh only
-        if (child.name.toLowerCase() === 'body') {
-          let textureUrl = null;
-          let transforms = null;
-
-          // Priority order: front > back > leftSleeve > rightSleeve
-          if (textures?.front) {
-            textureUrl = textures.front;
-            transforms = textureTransforms?.front;
-            console.log('🔥 Applying FRONT texture to body');
-          } else if (textures?.back) {
-            textureUrl = textures.back;
-            transforms = textureTransforms?.back;
-            console.log('🔥 Applying BACK texture to body');
-          } else if (textures?.leftSleeve) {
-            textureUrl = textures.leftSleeve;
-            transforms = textureTransforms?.leftSleeve;
-            console.log('🔥 Applying LEFT SLEEVE texture to body');
-          } else if (textures?.rightSleeve) {
-            textureUrl = textures.rightSleeve;
-            transforms = textureTransforms?.rightSleeve;
-            console.log('🔥 Applying RIGHT SLEEVE texture to body');
-          }
-
-          if (textureUrl) {
-            const texture = textureLoader.load(
-              textureUrl,
-              () => console.log('✅ Container texture loaded:', textureUrl),
-              undefined,
-              (err) => console.error('❌ Container texture failed:', err)
-            );
-
-            // Apply transforms if available
-            if (transforms) {
-              texture.center.set(0.5, 0.5);
-              texture.rotation = (transforms.rotation * Math.PI) / 180;
-
-              const scaleX = Math.max(0.1, transforms.scale / 220);
-              const scaleY = Math.max(0.1, transforms.scale / 220);
-              texture.repeat.set(scaleX, scaleY);
-
-              const offsetX = transforms.position.x / 800;
-              const offsetY = -transforms.position.y / 800;
-              texture.offset.set(offsetX, offsetY);
-            } else {
-              // Default visible settings
-              texture.repeat.set(0.8, 0.8);
-              texture.offset.set(0.1, 0.1);
-              texture.center.set(0.5, 0.5);
-            }
-
-            child.material = new THREE.MeshLambertMaterial({
-              map: texture,
-              transparent: true,
-            });
-
-            console.log('✅ Applied container-specific texture to body mesh');
-            child.material.needsUpdate = true;
-          } else {
-            // No texture - apply base material
-            child.material = materials.body;
-          }
-          return;
-        }
-
-        // Apply materials to other parts (neck, cuff, buttons, etc.)
-        if (meshName.includes('neck') && !meshName.includes('border')) {
-          child.material = materials.neck;
-        } else if (meshName.includes('neck') && meshName.includes('border')) {
-          child.material = materials.neckBorder;
-        } else if (meshName.includes('cuff')) {
-          child.material = materials.cuff;
-        } else if (meshName.includes('button')) {
-          child.material = materials.buttons;
-        } else if (meshName.includes('ribbed') || meshName.includes('hem')) {
-          child.material = materials.ribbedHem;
-        } else {
-          // Default body material for any other parts
-          child.material = materials.body;
-        }
-      }
-    });
-  }, [materials, textures, textureTransforms, textureLoader, colors]);
 
   return (
     <group ref={modelRef}>
