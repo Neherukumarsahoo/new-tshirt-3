@@ -493,12 +493,6 @@ function SceneContent({ colors, background, motion, texture, scale, aspectRatio,
       {/* 3D Background Element */}
       <BackgroundElement background={background} />
 
-      {/* Ground plane for better depth perception */}
-      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -1.5, 0]} receiveShadow>
-        <planeGeometry args={[20, 20]} />
-        <shadowMaterial transparent opacity={0.1} />
-      </mesh>
-
       <AnimatedTShirt
         colors={colors}
         textures={textures}

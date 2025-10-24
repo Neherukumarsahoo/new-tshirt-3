@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef, useCallback, useMemo } from 'react';
+import { useState, useRef, useCallback, useMemo, useEffect } from 'react';
 import dynamic from 'next/dynamic';
 // Dynamically import Scene3D to avoid SSR issues with Three.js
 const Scene3D = dynamic(() => import('../components/Scene3D'), {
@@ -28,7 +28,7 @@ interface CropTransform {
 
 type ContainerType = 'front' | 'back' | 'leftSleeve' | 'rightSleeve';
 
-// 🔥 MOCKEY.AI UV ZONE MASKING SYSTEM
+
 async function loadImage(src: string): Promise<HTMLImageElement> {
   return new Promise((resolve, reject) => {
     const img = new Image();
@@ -42,6 +42,7 @@ async function loadImage(src: string): Promise<HTMLImageElement> {
 async function applyMask(imageUrl: string, maskUrl: string, cropValues?: { cropLeft: number; cropRight: number; cropTop: number; cropBottom: number }): Promise<string> {
   try {
     const [img, mask] = await Promise.all([loadImage(imageUrl), loadImage(maskUrl)]);
+    
 
     const size = 1024;
     const canvas = document.createElement('canvas');
@@ -49,37 +50,38 @@ async function applyMask(imageUrl: string, maskUrl: string, cropValues?: { cropL
     canvas.height = size;
     const ctx = canvas.getContext('2d')!;
 
-    // If crop values are provided, apply crop first
+
+   
     if (cropValues && (cropValues.cropLeft || cropValues.cropRight || cropValues.cropTop || cropValues.cropBottom)) {
       const cropCanvas = document.createElement('canvas');
       cropCanvas.width = img.width;
       cropCanvas.height = img.height;
       const cropCtx = cropCanvas.getContext('2d')!;
 
-      // Calculate crop in pixels
+     
       const cropX = Math.round((cropValues.cropLeft / 100) * img.width);
       const cropY = Math.round((cropValues.cropTop / 100) * img.height);
       const cropWidth = Math.round(img.width - (cropValues.cropLeft / 100) * img.width - (cropValues.cropRight / 100) * img.width);
       const cropHeight = Math.round(img.height - (cropValues.cropTop / 100) * img.height - (cropValues.cropBottom / 100) * img.height);
 
-      // Draw cropped image
+      
       cropCtx.drawImage(img, cropX, cropY, cropWidth, cropHeight, 0, 0, img.width, img.height);
 
-      // Use cropped image for masking
+    
       ctx.drawImage(cropCanvas, 0, 0, size, size);
     } else {
-      // Draw the uploaded image without crop
+     
       ctx.drawImage(img, 0, 0, size, size);
     }
 
-    // Apply the zone mask (white areas = visible, black areas = transparent)
+   
     ctx.globalCompositeOperation = 'destination-in';
     ctx.drawImage(mask, 0, 0, size, size);
 
     return canvas.toDataURL('image/png');
   } catch (error) {
     console.warn('❌ Zone masking failed, using original image:', error);
-    return imageUrl; // Fallback to original if masking fails
+    return imageUrl; 
   }
 }
 
@@ -116,15 +118,58 @@ function ContainerImageControl({
   onTransform,
   onRemove,
 }: ContainerImageControlProps) {
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas || !image) return;
+
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    const img = new Image();
+    img.onload = () => {
+     
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+     
+      ctx.save();
+
+      
+      ctx.translate(transforms.x + canvas.width / 2, transforms.y + canvas.height / 2);
+      ctx.scale(transforms.scale / 100, transforms.scale / 100);
+      ctx.rotate((transforms.rotation * Math.PI) / 180);
+
+     
+      const cropX = (transforms.cropLeft / 100) * img.width;
+      const cropY = (transforms.cropTop / 100) * img.height;
+      const cropWidth = img.width - (transforms.cropLeft / 100) * img.width - (transforms.cropRight / 100) * img.width;
+      const cropHeight = img.height - (transforms.cropTop / 100) * img.height - (transforms.cropBottom / 100) * img.height;
+
+      
+      ctx.drawImage(img, cropX, cropY, cropWidth, cropHeight, -cropWidth / 2, -cropHeight / 2, cropWidth, cropHeight);
+
+     
+      ctx.restore();
+
+     
+      const base64 = canvas.toDataURL('image/png');
+      console.log('Canvas exported Base64:', base64);
+    };
+    img.src = image;
+  }, [image, transforms]);
+
   return (
     <div className="relative w-full h-full group">
-      {/* Container Image */}
-      <img
-        src={image}
-        alt={`${container} design`}
+      {/* Container Canvas */}
+      <canvas
+        ref={canvasRef}
+        width={300}
+        height={300}
         className="w-full h-full object-contain cursor-move"
         style={{
-          transform: `translate(${transforms.x}px, ${transforms.y}px) scale(${transforms.scale / 100}) rotate(${transforms.rotation}deg)`,
+          maxWidth: '100%',
+          maxHeight: '100%',
         }}
         draggable={false}
       />
@@ -597,12 +642,12 @@ function UnifiedImageControl({
             className={`absolute w-5 h-5 bg-white border-2 border-blue-500 cursor-${cursor} hover:bg-blue-50 hover:border-blue-600 hover:scale-110 transition-all z-40 shadow-sm`}
             style={{
               // 🔥 NEW: Dynamic positioning based on scaled image size
-              [position.includes('top') ? 'top' : 'bottom']: position.includes('top') 
-                ? `calc(50% - ${imgH/2}px - 10px)` 
-                : `calc(50% + ${imgH/2}px - 10px)`,
-              [position.includes('left') ? 'left' : 'right']: position.includes('left') 
-                ? `calc(50% - ${imgW/2}px - 10px)` 
-                : `calc(50% + ${imgW/2}px - 10px)`,
+              [position.includes('top') ? 'top' : 'bottom']: position.includes('top')
+                ? `calc(50% - ${imgH / 2}px - 10px)`
+                : `calc(50% + ${imgH / 2}px - 10px)`,
+              [position.includes('left') ? 'left' : 'right']: position.includes('left')
+                ? `calc(50% - ${imgW / 2}px - 10px)`
+                : `calc(50% + ${imgW / 2}px - 10px)`,
               borderRadius: '50%',
             }}
             onMouseDown={(e) => {
@@ -687,26 +732,26 @@ function UnifiedImageControl({
               key={`edge-${edge}`}
               className={`absolute w-3 h-3 bg-green-500 border border-white cursor-${cursor} hover:bg-green-600 transition-all z-40 rounded-sm`}
               style={{
-                // 🔥 NEW: Dynamic edge positioning
-                ...(edge === 'top' && { 
-                  top: `calc(50% - ${imageHeight/2}px - 6px)`, 
-                  left: '50%', 
-                  transform: 'translateX(-50%)' 
+                
+                ...(edge === 'top' && {
+                  top: `calc(50% - ${imageHeight / 2}px - 6px)`,
+                  left: '50%',
+                  transform: 'translateX(-50%)'
                 }),
-                ...(edge === 'bottom' && { 
-                  bottom: `calc(50% - ${imageHeight/2}px - 6px)`, 
-                  left: '50%', 
-                  transform: 'translateX(-50%)' 
+                ...(edge === 'bottom' && {
+                  bottom: `calc(50% - ${imageHeight / 2}px - 6px)`,
+                  left: '50%',
+                  transform: 'translateX(-50%)'
                 }),
-                ...(edge === 'left' && { 
-                  left: `calc(50% - ${imageWidth/2}px - 6px)`, 
-                  top: '50%', 
-                  transform: 'translateY(-50%)' 
+                ...(edge === 'left' && {
+                  left: `calc(50% - ${imageWidth / 2}px - 6px)`,
+                  top: '50%',
+                  transform: 'translateY(-50%)'
                 }),
-                ...(edge === 'right' && { 
-                  right: `calc(50% - ${imageWidth/2}px - 6px)`, 
-                  top: '50%', 
-                  transform: 'translateY(-50%)' 
+                ...(edge === 'right' && {
+                  right: `calc(50% - ${imageWidth / 2}px - 6px)`,
+                  top: '50%',
+                  transform: 'translateY(-50%)'
                 }),
               }}
               onMouseDown={(e) => {
@@ -718,7 +763,7 @@ function UnifiedImageControl({
                   const delta = (edge === 'left' || edge === 'right') ? me.clientX - start.x : me.clientY - start.y;
                   // inward: positive crop; outward: negative crop → stretch
                   const dir = (edge === 'left' || edge === 'top') ? 1 : -1;
-                const next = Math.max(-25, Math.min(50, startVal + dir * delta * 0.2));
+                  const next = Math.max(-25, Math.min(50, startVal + dir * delta * 0.2));
                   onTransform((prev: any) => ({ ...prev, [`crop${edge[0].toUpperCase() + edge.slice(1)}`]: next }));
                 };
 
@@ -1199,7 +1244,25 @@ export default function EditorPage() {
             <div className="mb-6">
               <label className="block text-sm font-semibold text-gray-700 mb-3">Current Design</label>
               <div className="border border-gray-200 rounded-lg p-4 bg-gray-50">
-                <img src={currentImage} alt="Current design" className="w-full h-32 object-contain" />
+                <canvas
+                  width={300}
+                  height={200}
+                  className="w-full h-32 object-contain"
+                  style={{ maxWidth: '100%', maxHeight: '100%' }}
+                  ref={(canvas) => {
+                    if (canvas && currentImage) {
+                      const ctx = canvas.getContext('2d');
+                      if (ctx) {
+                        const img = new Image();
+                        img.onload = () => {
+                          ctx.clearRect(0, 0, canvas.width, canvas.height);
+                          ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+                        };
+                        img.src = currentImage;
+                      }
+                    }
+                  }}
+                />
                 <button
                   onClick={() => setCurrentImage(null)}
                   className="w-full mt-3 py-2 text-sm text-red-600 hover:text-red-700 font-medium"
